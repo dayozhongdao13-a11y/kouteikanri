@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工程管理ボード</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
+:root{
+  --blue:#2563eb;--blue-light:#dbeafe;
+  --yellow:#f59e0b;--yellow-light:#fef3c7;
+  --green:#10b981;--green-light:#d1fae5;
+  --red:#ef4444;--red-light:#fee2e2;
+  --purple:#8b5cf6;--purple-light:#ede9fe;
+  --gray:#64748b;--gray-light:#f1f5f9;
+}
+
+/* ヘッダー */
+.header{background:#1e293b;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header h1{font-size:16px;font-weight:700;letter-spacing:.5px}
+.header-btns{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#1d4ed8}
+.btn-success{background:var(--green);color:#fff}
+.btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)}
+.btn-outline:hover{background:rgba(255,255,255,.1)}
+
+/* カレンダーナビ */
+.cal-nav{background:#fff;padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}
+.cal-nav-title{font-size:14px;font-weight:700;color:#1e293b;min-width:200px;text-align:center}
+.btn-nav{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600}
+.btn-nav:hover{background:#e2e8f0}
+.btn-today{background:#2563eb;color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600}
+
+/* 2週間カレンダー */
+.calendar-wrap{padding:12px 16px;overflow-x:auto}
+.week-label{font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;padding:4px 8px;background:#f8fafc;border-radius:4px;border-left:3px solid #2563eb}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px}
+.day-cell{background:#fff;border-radius:8px;border:1px solid #e2e8f0;min-height:120px;padding:0;overflow:hidden;transition:box-shadow .15s}
+.day-cell:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.day-cell.today{border-color:#2563eb;border-width:2px}
+.day-cell.saturday{background:#bfdbfe}
+.day-cell.sunday{background:#fecaca}
+.day-header{padding:5px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9}
+.day-num{font-size:13px;font-weight:700;color:#1e293b}
+.day-num.today-num{background:#2563eb;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px}
+.day-dow{font-size:10px;color:#94a3b8;font-weight:500}
+.day-dow.sat{color:#1d4ed8;font-weight:700}
+.day-dow.sun{color:#b91c1c;font-weight:700}
+.day-add-btn{width:18px;height:18px;border-radius:4px;border:1px dashed #cbd5e1;background:transparent;cursor:pointer;font-size:12px;color:#94a3b8;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.day-add-btn:hover{border-color:#2563eb;color:#2563eb;background:#dbeafe}
+.day-entries{padding:4px}
+
+/* エントリーカード */
+.entry{border-radius:5px;padding:4px 6px;margin-bottom:3px;font-size:11px;cursor:pointer;position:relative;transition:box-shadow .1s}
+.entry:hover{box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.entry-del{position:absolute;top:2px;right:3px;font-size:9px;color:rgba(0,0,0,.3);cursor:pointer;display:none;background:rgba(255,255,255,.7);border-radius:2px;padding:0 3px;line-height:14px}
+.entry:hover .entry-del{display:block}
+.entry-del:hover{color:#ef4444}
+.entry-casing{background:#e0f2fe;border-left:3px solid #0284c7;color:#0369a1}
+.entry-note{background:#fef9c3;border-left:3px solid #ca8a04;color:#854d0e}
+.entry-order{border-left:3px solid #8b5cf6;color:#1e293b}
+.entry-order.fc{background:#fef3c7}
+.entry-order.cosmo{background:#dbeafe}
+.entry-order.normal{background:#f5f3ff}
+.entry-tag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:3px}
+.tag-casing{background:#0284c7;color:#fff}
+.tag-note{background:#ca8a04;color:#fff}
+.status-badge{font-size:12px;padding:3px 8px;border-radius:4px;font-weight:700;display:inline-block}
+.s-waiting{background:#fde68a;color:#92400e}
+.s-working{background:#bfdbfe;color:#1e40af}
+.s-ready{background:#bbf7d0;color:#14532d}
+.s-done{background:#e9d5ff;color:#4c1d95}
+
+/* 工程アイコン */
+.proc-icons{display:flex;gap:2px;margin-top:3px;flex-wrap:wrap}
+.proc-dot{width:18px;height:18px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.proc-dot.done{display:flex}
+.pd-kakukan{background:#ef4444}
+.pd-header{background:#3b82f6}
+.pd-fin{background:#22c55e}
+.pd-casing{background:#f59e0b}
+.pd-done{background:#8b5cf6}
+
+/* 待機リスト */
+.waiting-section{padding:12px 16px;border-top:2px solid #e2e8f0;background:#fff}
+.waiting-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.waiting-title{font-size:14px;font-weight:700;color:#1e293b}
+.status-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.stab{padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;transition:all .1s}
+.stab.active{border-color:currentColor}
+.stab-all.active{background:#1e293b;color:#fff;border-color:#1e293b}
+.stab-waiting.active{background:#fde68a;color:#92400e;border-color:#f59e0b}
+.stab-working.active{background:#bfdbfe;color:#1e40af;border-color:#2563eb}
+.stab-ready.active{background:#bbf7d0;color:#14532d;border-color:#10b981}
+.stab-done.active{background:#e9d5ff;color:#4c1d95;border-color:#8b5cf6}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-left:auto}
+.leg{display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b}
+.leg-dot{width:12px;height:12px;border-radius:50%}
+
+.wcards{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;flex-wrap:nowrap}
+.wcard{border:2px solid #e2e8f0;border-radius:10px;padding:14px;background:#fff;min-width:190px;max-width:210px;flex-shrink:0;cursor:pointer;transition:box-shadow .15s;position:relative}
+.wcard:hover{box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.wcard.fc{background:#fffbeb;border-color:#f59e0b}
+.wcard.cosmo{background:#eff6ff;border-color:#2563eb}
+.wcard.s-done-card{border-color:#8b5cf6}.wcard.s-done-card .fade-on-done{opacity:1}.wcard.s-done-card .wcard-ship-big{opacity:1!important}.wcard.s-done-card .done-big-badge{opacity:1!important}
+.wcard-del{position:absolute;top:5px;right:6px;font-size:12px;color:#94a3b8;cursor:pointer;background:none;border:none;line-height:1;padding:2px 4px;border-radius:3px}
+.wcard-del:hover{color:#ef4444;background:#fee2e2}
+.wcard-num{font-size:13px;color:#64748b;margin-bottom:3px;font-weight:600}
+.wcard-company{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px}
+.wcard-model{font-size:13px;color:#475569;margin-bottom:6px;word-break:break-all}
+.wcard-meta{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.wcard-count{font-size:13px;background:#f1f5f9;padding:2px 8px;border-radius:4px;font-weight:600;color:#1e293b}
+.wcard-ship{font-size:13px;color:#64748b;margin-top:2px}
+.done-badge{position:absolute;top:5px;left:6px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+/* モーダル */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.modal-box{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-title{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:11px;font-weight:600;color:#475569}
+.fg label .req{color:#ef4444}
+.fg input,.fg select,.fg textarea{height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 10px;font-size:12px;color:#1e293b;background:#fff;width:100%}
+.fg textarea{height:60px;padding:8px 10px;resize:none}
+.fg select{padding:0 8px}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+
+/* 工程チェック */
+.proc-checks{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.pc-label{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;transition:all .15s}
+.pc-label:hover{border-color:#94a3b8}
+.pc-label.checked{border-color:var(--col);background:var(--col);color:#fff}
+.pc-label input{display:none}
+.pc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* 直接入力モーダル */
+.note-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1100;align-items:center;justify-content:center}
+.note-modal.open{display:flex}
+.note-box{background:#fff;border-radius:10px;padding:20px;width:320px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+
+/* 同期ステータス */
+#sync-status{position:fixed;bottom:16px;right:16px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;transition:opacity .5s;opacity:0}
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="header">
+  <h1>📋 工程管理ボード</h1>
+  <div class="header-btns">
+    <button class="btn btn-success" onclick="openOrderModal(null)">＋ 受注登録</button>
+    <button class="btn btn-outline" onclick="reloadFromCloud()">🔄 更新</button>
+  </div>
+</div>
+
+<!-- カレンダーナビ -->
+<div class="cal-nav">
+  <button class="btn-nav" onclick="changeWeeks(-2)">＜ 前へ</button>
+  <div class="cal-nav-title" id="cal-title"></div>
+  <button class="btn-nav" onclick="changeWeeks(2)">次へ ＞</button>
+  <button class="btn-today" onclick="goToday()">🏠 今週</button>
+</div>
+
+<!-- 2週間カレンダー -->
+<div class="calendar-wrap">
+  <div class="week-label" id="week1-label"></div>
+  <div class="week-grid" id="week1-grid"></div>
+  <div class="week-label" id="week2-label"></div>
+  <div class="week-grid" id="week2-grid"></div>
+</div>
+
+<!-- 待機リスト -->
+<div class="waiting-section">
+  <div class="waiting-header">
+    <div class="waiting-title">受注リスト</div>
+    <div class="status-tabs">
+      <div class="stab stab-all active" onclick="setFilter('all')">全て</div>
+      <div class="stab stab-waiting" onclick="setFilter('待機中')">待機中</div>
+      <div class="stab stab-working" onclick="setFilter('作業中')">作業中</div>
+      <div class="stab stab-ready" onclick="setFilter('出荷待ち')">出荷待ち</div>
+      <div class="stab stab-done" onclick="setFilter('出荷済み')">出荷済み</div>
+    </div>
+    <div id="sd-status" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"></div>
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#ef4444"></div>拡管</div>
+      <div class="leg"><div class="leg-dot" style="background:#3b82f6"></div>ヘッダー</div>
+      <div class="leg"><div class="leg-dot" style="background:#22c55e"></div>フィン抜き</div>
+      <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div>入荷</div>
+      <div class="leg"><div class="leg-dot" style="background:#8b5cf6"></div>完成</div>
+    </div>
+  </div>
+  <div class="wcards" id="wcards"></div>
+</div>
+
+<!-- 受注登録モーダル -->
+<div class="modal" id="order-modal">
+  <div class="modal-box">
+    <div class="modal-title">🗂 受注登録</div>
+    <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">基本情報</div>
+    <div class="form-grid">
+      <div class="fg"><label>受注ナンバー <span class="req">*</span></label><input type="text" id="f-num" placeholder="例: 19693-0"></div>
+      <div class="fg"><label>会社名 <span class="req">*</span></label><input type="text" id="f-company" placeholder="例: 中部鉄鋼"></div>
+      <div class="fg"><label>型式 <span class="req">*</span></label><input type="text" id="f-model" placeholder="例: HMBC-38H"></div>
+      <div class="fg"><label>本図台数</label><input type="number" id="f-honzu" placeholder="例: 2" min="1"></div>
+      <div class="fg"><label>対象台数</label><input type="number" id="f-taisho" placeholder="例: 1" min="1"></div>
+      <div class="fg"><label>SDカードナンバー</label><input type="text" id="f-sd" placeholder="例: SD-001"></div>
+      <div class="fg"><label>ステータス</label>
+        <select id="f-status">
+          <option value="待機中">待機中</option>
+          <option value="作業中">作業中</option>
+          <option value="出荷待ち">出荷待ち</option>
+          <option value="出荷済み">出荷済み</option>
+        </select>
+      </div>
+      <div class="fg"><label>ケーシング入荷日</label><input type="date" id="f-casing"></div>
+      <div class="fg"><label>出荷日 <span class="req">*</span></label><input type="date" id="f-ship"></div>
+      <div class="fg full"><label>メモ・備考</label><textarea id="f-memo" placeholder="備考・特記事項など"></textarea></div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">工程チェック</div>
+    <div class="proc-checks" id="proc-checks">
+      <label class="pc-label" style="--col:#ef4444" onclick="toggleProc(this)">
+        <input type="checkbox" name="proc" value="kakukan">
+        <div class="pc-dot" style="background:#ef4444"></div>拡管
+      </label>
+      <label class="pc-label" style="--col:#3b82f6" onclick="toggleProc(this)">
+        <input type="checkbox" name="proc" value="header">
+        <div class="pc-dot" style="background:#3b82f6"></div>ヘッダー製作
+      </label>
+      <label class="pc-label" style="--col:#22c55e" onclick="toggleProc(this)">
+        <input type="checkbox" name="proc" value="fin">
+        <div class="pc-dot" style="background:#22c55e"></div>フィン抜き
+      </label>
+      <label class="pc-label" style="--col:#f59e0b" onclick="toggleProc(this)">
+        <input type="checkbox" name="proc" value="casing">
+        <div class="pc-dot" style="background:#f59e0b"></div>ケーシング入荷
+      </label>
+
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="btn" style="background:#f1f5f9;color:#475569" onclick="closeOrderModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveOrder()">💾 登録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 直接入力モーダル -->
+<div class="note-modal" id="note-modal">
+  <div class="note-box">
+    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px">📝 直接入力</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px" id="note-date-label"></div>
+    <div class="fg" style="margin-bottom:8px">
+      <label>内容</label>
+      <input type="text" id="note-text" placeholder="例: 室外機4台入荷" style="height:34px">
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>種類</label>
+      <select id="note-type">
+        <option value="note">メモ（黄）</option>
+        <option value="casing">ケーシング入荷（青）</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" style="background:#f1f5f9;color:#475569;font-size:12px" onclick="closeNoteModal()">キャンセル</button>
+      <button class="btn btn-primary" style="font-size:12px" onclick="saveNote()">追加</button>
+    </div>
+  </div>
+</div>
+
+<div id="sync-status"></div>
+
+<script>
+// ===== Supabase =====
+const SUPA_URL = 'https://gnbgeuecgdevrxwdzgok.supabase.co';
+const SUPA_KEY = 'sb_publishable_T52K-qTofUxcGFATKKB4ag_AZZnBHfw';
+const HEADERS = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'};
+
+function showSync(ok,msg){
+  let el=document.getElementById('sync-status');
+  el.style.background=ok?'#dcfce7':'#fee2e2';
+  el.style.color=ok?'#166534':'#991b1b';
+  el.textContent=(ok?'✓ ':'⚠ ')+msg;
+  el.style.opacity='1';
+  setTimeout(()=>{el.style.opacity='0'},3000);
+}
+async function dbSave(key,val){
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/app_data`,{method:'POST',headers:HEADERS,body:JSON.stringify({id:key,data:val,updated_at:new Date().toISOString()})});
+    return r.ok;
+  }catch(e){return false;}
+}
+async function dbLoad(){
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/app_data?select=id,data`,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+    const arr=await r.json();
+    if(!Array.isArray(arr)) return {};
+    const m={};arr.forEach(x=>{m[x.id]=x.data;});
+    return m;
+  }catch(e){return {};}
+}
+async function syncAll(){
+  const ok=await dbSave('orders',orders);
+  await dbSave('calNotes',calNotes);
+  showSync(ok,'保存しました');
+}
+
+// ===== データ =====
+let orders=[];
+let calNotes=[];// [{date:'2026-03-30',text:'xxx',type:'note'|'casing'}]
+let currentStart=null;
+let filterStatus='all';
+let editingId=null;
+
+function localDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function getMonday(d){const dw=d.getDay();const diff=dw===0?-6:1-dw;const m=new Date(d);m.setDate(d.getDate()+diff);m.setHours(0,0,0,0);return m;}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function fmtMD(d){return (d.getMonth()+1)+'/'+d.getDate();}
+function fmtYMD(s){if(!s)return '';const p=s.split('-');return p[0]+'/'+(+p[1])+'/'+(+p[2]);}
+
+// ===== 工程チェックUI =====
+function toggleProc(label){
+  const cb=label.querySelector('input');
+  cb.checked=!cb.checked;
+  label.classList.toggle('checked',cb.checked);
+}
+function getProcState(){
+  const m={};
+  document.querySelectorAll('#proc-checks input').forEach(cb=>{m[cb.value]=cb.checked;});
+  return m;
+}
+function setProcState(procs){
+  document.querySelectorAll('#proc-checks .pc-label').forEach(label=>{
+    const cb=label.querySelector('input');
+    const v=procs&&procs[cb.value];
+    cb.checked=!!v;
+    label.classList.toggle('checked',!!v);
+  });
+}
+
+// ===== 受注モーダル =====
+function openOrderModal(id){
+  editingId=id;
+  if(id){
+    const o=orders.find(x=>x.id===id);
+    if(!o) return;
+    document.getElementById('f-num').value=o.num||'';
+    document.getElementById('f-company').value=o.company||'';
+    document.getElementById('f-model').value=o.model||'';
+    document.getElementById('f-honzu').value=o.honzu||'';
+    document.getElementById('f-taisho').value=o.taisho||'';
+    document.getElementById('f-sd').value=o.sd||'';
+    document.getElementById('f-status').value=o.status||'待機中';
+    document.getElementById('f-casing').value=o.casing||'';
+    document.getElementById('f-ship').value=o.ship||'';
+    document.getElementById('f-memo').value=o.memo||'';
+    setProcState(o.procs||{});
+  } else {
+    ['f-num','f-company','f-model','f-honzu','f-taisho','f-sd','f-memo'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-status').value='待機中';
+    document.getElementById('f-casing').value='';
+    document.getElementById('f-ship').value=localDate(new Date());
+    setProcState({});
+  }
+  document.getElementById('order-modal').classList.add('open');
+}
+function closeOrderModal(){
+  document.getElementById('order-modal').classList.remove('open');
+  editingId=null;
+}
+function saveOrder(){
+  const num=document.getElementById('f-num').value.trim();
+  const company=document.getElementById('f-company').value.trim();
+  const model=document.getElementById('f-model').value.trim();
+  const ship=document.getElementById('f-ship').value;
+  if(!num||!company||!model){alert('受注番号・会社名・型式は必須です');return;}
+  // SDカード重複チェック
+  const sdVal = document.getElementById('f-sd').value.trim();
+  if(sdVal){
+    const conflict = orders.find(o=>
+      o.id !== (editingId||'') &&
+      o.sd && o.sd.toString().trim() === sdVal &&
+      o.status !== '出荷済み'
+    );
+    if(conflict){
+      alert(`SD-${sdVal} はすでに「${conflict.company}（${conflict.num}）」で使用中です！`);
+      return;
+    }
+  }
+  const o={
+    id: editingId||Date.now().toString(),
+    num,company,model,ship,
+    honzu:document.getElementById('f-honzu').value||'',
+    taisho:document.getElementById('f-taisho').value||'',
+    sd:document.getElementById('f-sd').value.trim(),
+    status:document.getElementById('f-status').value,
+    casing:document.getElementById('f-casing').value,
+    memo:document.getElementById('f-memo').value.trim(),
+    procs:getProcState()
+  };
+  if(editingId){
+    const idx=orders.findIndex(x=>x.id===editingId);
+    if(idx>=0) orders[idx]=o;
+  } else {
+    orders.push(o);
+  }
+  closeOrderModal();
+  syncAll();
+  renderAll();
+}
+function deleteOrder(id,e){
+  e&&e.stopPropagation();
+  orders=orders.filter(x=>x.id!==id);
+  syncAll();
+  renderAll();
+}
+
+// ===== カレンダー直接入力 =====
+let noteTarget=null;
+function openNoteModal(dateStr){
+  noteTarget=dateStr;
+  document.getElementById('note-date-label').textContent='日付: '+fmtYMD(dateStr);
+  document.getElementById('note-text').value='';
+  document.getElementById('note-type').value='note';
+  document.getElementById('note-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('note-text').focus(),100);
+}
+function closeNoteModal(){
+  document.getElementById('note-modal').classList.remove('open');
+  noteTarget=null;
+}
+function saveNote(){
+  const text=document.getElementById('note-text').value.trim();
+  if(!text){alert('内容を入力してください');return;}
+  calNotes.push({id:Date.now().toString(),date:noteTarget,text,type:document.getElementById('note-type').value});
+  closeNoteModal();
+  syncAll();
+  renderCalendar();
+}
+function deleteNote(id,e){
+  e&&e.stopPropagation();
+  calNotes=calNotes.filter(n=>n.id!==id);
+  syncAll();
+  renderCalendar();
+}
+
+// ===== カレンダー描画 =====
+function renderCalendar(){
+  const start=currentStart;
+  const end=addDays(start,13);
+  const fmt=d=>(d.getMonth()+1)+'/'+d.getDate();
+  document.getElementById('cal-title').textContent=
+    start.getFullYear()+'/'+fmt(start)+' 〜 '+end.getFullYear()+'/'+fmt(end);
+
+  const DOWS=['月','火','水','木','金','土','日'];
+  renderWeek('week1-label','week1-grid',start,7);
+  renderWeek('week2-label','week2-grid',addDays(start,7),7);
+}
+
+function renderWeek(labelId,gridId,weekStart,days){
+  const d0=weekStart;
+  const d1=addDays(d0,days-1);
+  document.getElementById(labelId).textContent=
+    (d0.getMonth()+1)+'/'+d0.getDate()+'（月）〜'+(d1.getMonth()+1)+'/'+d1.getDate()+'（日）';
+
+  const today=localDate(new Date());
+  const DOWS=['月','火','水','木','金','土','日'];
+  let html='';
+  for(let i=0;i<days;i++){
+    const d=addDays(d0,i);
+    const ds=localDate(d);
+    const dw=d.getDay();// 0=日
+    const isToday=ds===today;
+    const isSat=dw===6;
+    const isSun=dw===0;
+    let cls='day-cell';
+    if(isToday) cls+=' today';
+    if(isSat) cls+=' saturday';
+    if(isSun) cls+=' sunday';
+    const dowCls=isSat?'day-dow sat':isSun?'day-dow sun':'day-dow';
+    const dowNames=['日','月','火','水','木','金','土'];
+    const numHtml=isToday
+      ?`<div class="day-num today-num" style="width:auto;padding:0 5px;border-radius:10px;font-size:11px">${d.getMonth()+1}/${d.getDate()}</div>`
+      :`<div class="day-num">${d.getMonth()+1}/${d.getDate()}</div>`;
+
+    // エントリー収集
+    let entries='';
+    // 直接入力ノート
+    calNotes.filter(n=>n.date===ds).forEach(n=>{
+      const cls2=n.type==='casing'?'entry entry-casing':'entry entry-note';
+      const tag=n.type==='casing'
+        ?`<span class="entry-tag tag-casing">ケーシング入荷</span>`
+        :`<span class="entry-tag tag-note">📝</span>`;
+      entries+=`<div class="${cls2}">${tag}${n.text}<span class="entry-del" onclick="deleteNote('${n.id}',event)">×</span></div>`;
+    });
+    // 受注ケーシング入荷
+    orders.filter(o=>o.casing===ds).forEach(o=>{
+      entries+=`<div class="entry entry-casing" onclick="openOrderModal('${o.id}')">
+        <span class="entry-tag tag-casing">ケーシング入荷</span>
+        <div style="font-weight:700;font-size:12px">${o.company}</div>
+        <div style="font-size:11px;font-weight:600;color:#0369a1;word-break:break-all">${o.model}</div>
+      </div>`;
+    });
+    // 受注出荷日
+    orders.filter(o=>o.ship===ds).forEach(o=>{
+      const allProcs=['kakukan','header','fin','casing'];
+      const allChecked=o.procs&&allProcs.every(p=>o.procs[p]);
+      const isFc=o.model&&(o.model.includes('F/C')||o.model.includes('f/c')||o.model.includes('FC'));
+      const isCosmo=o.model&&(o.model.includes('コスモ')||o.model.includes('CF-'));
+      const eCls=isFc?'entry entry-order fc':isCosmo?'entry entry-order cosmo':'entry entry-order normal';
+      const procDots=buildProcDots(o.procs);
+      entries+=`<div class="${eCls}" style="position:relative;" onclick="openOrderModal('${o.id}')">
+        ${allChecked?'<div style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;opacity:1!important">完</div>':''}
+        <div style="font-size:11px;color:#64748b;font-weight:600">${o.num||''}</div>
+        <div style="font-size:13px;font-weight:800;color:#1e293b">${o.company}</div>
+        ${o.honzu?`<div style="font-size:11px;font-weight:600;margin-top:2px">本図 ${o.honzu}台</div>`:''}
+        <div style="font-size:12px;font-weight:700;color:#1e293b;word-break:break-all">${o.model}</div>
+        ${procDots}
+        <span class="entry-del" onclick="deleteOrder('${o.id}',event)">×</span>
+      </div>`;
+    });
+
+    html+=`<div class="${cls}">
+      <div class="day-header">
+        <div style="display:flex;align-items:center;gap:4px">${numHtml}<span class="${dowCls}">${dowNames[dw]}</span></div>
+        <button class="day-add-btn" onclick="openNoteModal('${ds}')" title="直接入力">＋</button>
+      </div>
+      <div class="day-entries">${entries}</div>
+    </div>`;
+  }
+  document.getElementById(gridId).innerHTML=html;
+}
+
+function buildProcDots(procs){
+  if(!procs) return '';
+  const hasAny = Object.values(procs).some(v=>v);
+  if(!hasAny) return '';
+  const list=[
+    {k:'kakukan',c:'pd-kakukan',l:'拡'},
+    {k:'header',c:'pd-header',l:'H'},
+    {k:'fin',c:'pd-fin',l:'F'},
+    {k:'casing',c:'pd-casing',l:'入'},
+  ];
+  const dots=list.map(p=>`<div class="proc-dot ${p.c}${procs[p.k]?' done':''}" title="${p.l}">${p.l}</div>`).join('');
+  return `<div class="proc-icons">${dots}</div>`;
+}
+
+function statusKey(s){
+  if(s==='待機中') return 'waiting';
+  if(s==='作業中') return 'working';
+  if(s==='出荷待ち') return 'ready';
+  if(s==='出荷済み') return 'done';
+  return 'waiting';
+}
+
+// ===== 待機リスト描画 =====
+function renderWcards(){
+  const filtered=filterStatus==='all'?orders:orders.filter(o=>o.status===filterStatus);
+  const sorted=[...filtered].sort((a,b)=>{
+    const sa=a.ship||'9999-99-99';
+    const sb=b.ship||'9999-99-99';
+    return sa.localeCompare(sb);
+  });
+  const area=document.getElementById('wcards');
+  if(!sorted.length){
+    area.innerHTML='<div style="color:#94a3b8;font-size:12px;padding:16px">受注データがありません。「＋ 受注登録」から追加してください。</div>';
+    return;
+  }
+  area.innerHTML=sorted.map(o=>{
+    const allProcs=['kakukan','header','fin','casing'];
+    const allChecked=o.procs&&allProcs.every(p=>o.procs[p]);
+    const allProcs2=['kakukan','header','fin','casing'];
+    const allChecked2=o.procs&&allProcs2.every(p=>o.procs[p]);
+    const isFc=o.model&&(o.model.includes('F/C')||o.model.includes('f/c')||o.model.includes('FC'));
+    const isCosmo=o.model&&(o.model.includes('コスモ')||o.model.includes('CF-'));
+    const isDone=o.status==='出荷済み'||allChecked;
+    let cls='wcard';
+    if(isFc) cls+=' fc';
+    else if(isCosmo) cls+=' cosmo';
+    if(isDone) cls+=' s-done-card';
+    const today=new Date();
+    const ship=o.ship?new Date(o.ship):null;
+    const days=ship?Math.round((ship-today)/86400000):null;
+    const daysText=days===null?'':days<0?`<span style="color:#ef4444">${Math.abs(days)}日超過</span>`:days===0?'<span style="color:#f59e0b">本日</span>':`残${days}日`;
+    const procDots=buildProcDots(o.procs);
+    const stBadge=`<span class="status-badge s-${statusKey(o.status)}">${o.status}</span>`;
+    return `<div class="${cls}" onclick="openOrderModal('${o.id}')">
+      <button class="wcard-del" onclick="deleteOrder('${o.id}',event)">×</button>
+      ${allChecked?'<div class="done-big-badge" style="position:absolute;top:6px;right:8px;width:30px;height:30px;border-radius:50%;background:#ef4444;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(239,68,68,.5)">完</div>':''}
+      <div class="wcard-num fade-on-done">${o.num||''}</div>
+      <div class="wcard-company fade-on-done">${o.company}</div>
+      <div class="fade-on-done" style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:6px;word-break:break-all;line-height:1.3">${o.model}</div>
+      <div class="wcard-meta fade-on-done">
+        ${o.honzu?`<span class="wcard-count">本図 ${o.honzu}台</span>`:''}
+        ${o.taisho?`<span class="wcard-count">対象 ${o.taisho}台</span>`:''}
+      </div>
+      ${o.ship?`<div class="wcard-ship-big" style="position:relative;z-index:2">📅 <span style="font-size:16px;font-weight:800;color:#1e293b">${fmtYMD(o.ship)}</span> <span style="font-size:12px;font-weight:600">${daysText}</span></div>`:''}
+      ${o.casing?`<div class="wcard-ship" style="font-size:10px;color:#0284c7">📦 入荷 ${fmtYMD(o.casing)}</div>`:''}
+      ${o.sd?`<div style="font-size:15px;font-weight:800;color:#1d4ed8;background:#dbeafe;border-radius:5px;padding:2px 8px;margin-top:4px;display:inline-block">💾 SD-${o.sd}</div>`:''}
+      ${procDots}
+    </div>`;
+  }).join('');
+}
+
+function setFilter(s){
+  filterStatus=s;
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  const map={'all':'stab-all','待機中':'stab-waiting','作業中':'stab-working','出荷待ち':'stab-ready','出荷済み':'stab-done'};
+  document.querySelector('.'+map[s])?.classList.add('active');
+  renderWcards();
+}
+
+function changeWeeks(n){
+  currentStart=addDays(currentStart,n*7);
+  renderCalendar();
+}
+function goToday(){
+  currentStart=getMonday(new Date());
+  renderCalendar();
+}
+function renderAll(){renderCalendar();renderWcards();renderSdStatus();}
+
+
+// ===== SDカード空き状況 =====
+const SD_TOTAL = Array.from({length:11},(_,i)=>i+1);
+function renderSdStatus(){
+  const used = new Set(orders.filter(o=>o.sd&&o.status!=='出荷済み').map(o=>o.sd.toString().trim()));
+  const free = SD_TOTAL.filter(n=>!used.has(n.toString()));
+  const el = document.getElementById('sd-status');
+  if(!el) return;
+  if(free.length===0){
+    el.innerHTML='<span style="font-size:11px;color:#fca5a5;font-weight:600">SDカード: 全て使用中</span>';
+    return;
+  }
+  const dots = free.map(n=>`<span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:1px 7px;border-radius:4px;border:1px solid #86efac">SD-${n}</span>`).join('');
+  el.innerHTML=`<span style="font-size:11px;color:#475569;font-weight:600;margin-right:2px">空きSD:</span>${dots}`;
+}
+
+function reloadFromCloud(){
+  showSync(true,'読み込み中...');
+  dbLoad().then(m=>{
+    if(m.orders&&Array.isArray(m.orders)) orders=m.orders;
+    if(m.calNotes&&Array.isArray(m.calNotes)) calNotes=m.calNotes;
+    renderAll();
+    showSync(true,'更新しました');
+  });
+}
+
+// ===== 初期化 =====
+currentStart=getMonday(new Date());
+dbLoad().then(m=>{
+  if(m.orders&&Array.isArray(m.orders)) orders=m.orders;
+  if(m.calNotes&&Array.isArray(m.calNotes)) calNotes=m.calNotes;
+  renderAll();
+  showSync(true,'データ読み込み完了');
+});
+</script>
+</body>
+</html>
