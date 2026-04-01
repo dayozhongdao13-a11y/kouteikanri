@@ -83,6 +83,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f0f4f8;color:#1a202c;min-
 .pd-fin{background:#22c55e}
 .pd-casing{background:#f59e0b}
 .pd-done{background:#8b5cf6}
+.pd-kumitate{background:#0891b2}
 
 /* 待機リスト */
 .waiting-section{padding:12px 16px;border-top:2px solid #e2e8f0;background:#fff}
@@ -192,6 +193,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f0f4f8;color:#1a202c;min-
       <div class="leg"><div class="leg-dot" style="background:#3b82f6"></div>ヘッダー</div>
       <div class="leg"><div class="leg-dot" style="background:#22c55e"></div>フィン抜き</div>
       <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div>入荷</div>
+      <div class="leg"><div class="leg-dot" style="background:#0891b2"></div>組み立て</div>
       <div class="leg"><div class="leg-dot" style="background:#8b5cf6"></div>完成</div>
     </div>
   </div>
@@ -239,6 +241,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:#f0f4f8;color:#1a202c;min-
       <label class="pc-label" style="--col:#f59e0b" onclick="toggleProc(this)">
         <input type="checkbox" name="proc" value="casing">
         <div class="pc-dot" style="background:#f59e0b"></div>ケーシング入荷
+      </label>
+      <label class="pc-label" style="--col:#0891b2" onclick="toggleProc(this)">
+        <input type="checkbox" name="proc" value="kumitate">
+        <div class="pc-dot" style="background:#0891b2"></div>組み立て
       </label>
 
     </div>
@@ -507,7 +513,7 @@ function renderWeek(labelId,gridId,weekStart,days){
     });
     // 受注出荷日
     orders.filter(o=>o.ship===ds).forEach(o=>{
-      const allProcs=['kakukan','header','fin','casing'];
+      const allProcs=['kakukan','header','fin','casing','kumitate'];
       const allChecked=o.procs&&allProcs.every(p=>o.procs[p]);
       const isFc=o.model&&(o.model.includes('F/C')||o.model.includes('f/c')||o.model.includes('FC'));
       const isCosmo=o.model&&(o.model.includes('コスモ')||o.model.includes('CF-'));
@@ -544,6 +550,7 @@ function buildProcDots(procs){
     {k:'header',c:'pd-header',l:'H'},
     {k:'fin',c:'pd-fin',l:'F'},
     {k:'casing',c:'pd-casing',l:'入'},
+    {k:'kumitate',c:'pd-kumitate',l:'組'},
   ];
   const dots=list.map(p=>`<div class="proc-dot ${p.c}${procs[p.k]?' done':''}" title="${p.l}">${p.l}</div>`).join('');
   return `<div class="proc-icons">${dots}</div>`;
@@ -571,9 +578,9 @@ function renderWcards(){
     return;
   }
   area.innerHTML=sorted.map(o=>{
-    const allProcs=['kakukan','header','fin','casing'];
+    const allProcs=['kakukan','header','fin','casing','kumitate'];
     const allChecked=o.procs&&allProcs.every(p=>o.procs[p]);
-    const allProcs2=['kakukan','header','fin','casing'];
+    const allProcs2=['kakukan','header','fin','casing','kumitate'];
     const allChecked2=o.procs&&allProcs2.every(p=>o.procs[p]);
     const isFc=o.model&&(o.model.includes('F/C')||o.model.includes('f/c')||o.model.includes('FC'));
     const isCosmo=o.model&&(o.model.includes('コスモ')||o.model.includes('CF-'));
