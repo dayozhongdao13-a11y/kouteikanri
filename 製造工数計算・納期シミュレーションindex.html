@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>製造工数計算・納期シミュレーション</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Hiragino Sans',Meiryo,sans-serif;font-size:13px;background:#f0f2f5;color:#1e293b;min-height:100vh}
+.app{padding:16px;max-width:1100px;margin:0 auto}
+.app-header{background:#1e3a5f;color:#fff;border-radius:10px;padding:14px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.app-header h1{font-size:17px;font-weight:600}
+.app-header p{font-size:11px;opacity:.7;margin-top:2px}
+
+.page-tabs{display:flex;gap:0;margin-bottom:14px;background:#fff;border-radius:8px;padding:4px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.ptab{padding:8px 22px;cursor:pointer;font-size:13px;font-weight:500;color:#64748b;border-radius:6px;transition:all .15s;white-space:nowrap;flex:1;text-align:center}
+.ptab.active{background:#1e3a5f;color:#fff}
+.page{display:none}.page.show{display:block}
+
+.card{background:#fff;border-radius:10px;padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-title{font-size:12px;font-weight:600;color:#64748b;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.fg{display:flex;flex-direction:column;gap:4px}
+label{font-size:11px;color:#64748b;font-weight:500}
+input,select{height:36px;border:1px solid #e2e8f0;border-radius:7px;padding:0 10px;font-size:13px;background:#fff;color:#1e293b;width:100%;transition:border-color .15s}
+input:focus,select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.counter{display:flex;align-items:center;gap:6px}
+.cbtn{width:30px;height:30px;border:1px solid #e2e8f0;border-radius:7px;background:#f8fafc;cursor:pointer;font-size:16px;color:#334155;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.cbtn:hover{background:#e2e8f0}
+.cval{font-size:14px;font-weight:600;min-width:22px;text-align:center;color:#1e293b}
+.btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btn{height:36px;padding:0 18px;border:1px solid #e2e8f0;border-radius:7px;cursor:pointer;font-size:13px;background:#f8fafc;color:#334155;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn:hover{background:#e2e8f0}
+.btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.btn-primary:hover{background:#1d4ed8}
+.btn-orange{background:#f97316;color:#fff;border-color:#f97316}
+.btn-orange:hover{background:#ea6c0a}
+.btn-green{background:#22c55e;color:#fff;border-color:#22c55e}
+.btn-green:hover{background:#16a34a}
+.btn-dark{background:#334155;color:#fff;border-color:#334155}
+.btn-dark:hover{background:#1e293b}
+
+.result-card{display:none;background:#fff;border-radius:10px;padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.result-card.show{display:block}
+.res-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:8px;margin-bottom:14px}
+.metric{background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #f1f5f9}
+.mlabel{font-size:10px;color:#64748b;margin-bottom:4px;display:flex;align-items:center;gap:4px;font-weight:500}
+.mdot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.mval{font-size:20px;font-weight:600;color:#1e293b}
+.munit{font-size:10px;color:#94a3b8}
+.msrc{font-size:9px;margin-top:3px;padding:2px 6px;border-radius:3px;display:inline-block;font-weight:600}
+.s-f{background:#dbeafe;color:#1d4ed8}
+.s-e{background:#dcfce7;color:#14532d;font-weight:700}
+.s-d{background:#bbf7d0;color:#166534}
+.s-m{background:#fef9c3;color:#854d0e}
+.s-n{background:#f1f5f9;color:#64748b}
+.match-info{font-size:11px;color:#475569;background:#f1f5f9;border-radius:7px;padding:8px 12px;margin-top:10px;display:none;border-left:3px solid #2563eb}
+
+/* ===== カレンダー ===== */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.cal-nav-center{font-size:15px;font-weight:600;color:#1e293b}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;padding:8px 12px;background:#fff;border-radius:8px;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.leg-item{display:flex;align-items:center;gap:3px;font-size:11px;color:#64748b}
+.ldot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.cal-wrap{overflow-x:auto;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.cal{width:100%;border-collapse:collapse;table-layout:fixed;min-width:620px}
+.cal th{padding:8px 4px;text-align:center;font-size:12px;font-weight:600}
+.cal th.wday{background:#1e3a5f;color:#fff}
+.cal th.tday{background:#2563eb;color:#fff}
+.cal th.hday{background:#f1f5f9;color:#94a3b8}
+.cal th:first-child{background:#334155;color:#fff;border-radius:10px 0 0 0}
+.cal td{vertical-align:top;padding:4px;border:1px solid #f1f5f9;min-width:60px}
+.cal td.hcol{background:#f8fafc}
+.tname{font-size:12px;font-weight:600;color:#334155;padding:3px 4px}
+.tbar{height:6px;background:#e2e8f0;border-radius:3px;margin-bottom:4px;overflow:hidden}
+.tbar-fill{height:100%;border-radius:3px;transition:width .3s}
+.blk{border-radius:5px;padding:4px 7px;margin-bottom:3px;cursor:pointer;font-size:11px;position:relative;transition:opacity .15s}
+.blk:hover{opacity:.9}
+.blk-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk-sub{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85}
+.dhdr{font-size:13px;font-weight:600}
+.ddate{font-size:11px;opacity:.8;margin-top:1px}
+
+/* ===== 待機リスト ===== */
+.wcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.wcard{border:2px solid #fde68a;border-radius:10px;padding:12px;background:#fff;cursor:pointer;transition:box-shadow .15s;position:relative}
+.wcard:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.wc-company{font-size:12px;font-weight:700;color:#1e293b}
+.wc-model{font-size:11px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-ship{display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.wc-dot{width:8px;height:8px;border-radius:50%;background:#2563eb;flex-shrink:0}
+.wc-shiptext{font-size:13px;color:#1e293b;font-weight:600}
+.wc-days{font-size:10px;background:#f1f5f9;color:#475569;border-radius:4px;padding:1px 6px;font-weight:600}
+.prow{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.pname{font-size:10px;display:flex;align-items:center;gap:3px;color:#334155}
+.pdot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.pbar-wrap{height:5px;border-radius:3px;overflow:hidden;background:#e2e8f0;margin:6px 0}
+.pbar-fill{height:100%;border-radius:3px}
+.wc-total{font-size:10px;color:#94a3b8;text-align:right;margin-top:2px}
+.done-tag{font-size:9px;background:#dcfce7;color:#166534;border-radius:3px;padding:0 5px;font-weight:700}
+.bdg-count{background:#f97316;color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700}
+.del-btn{position:absolute;top:6px;right:8px;font-size:13px;cursor:pointer;color:#94a3b8;line-height:1}
+.del-btn:hover{color:#ef4444}
+
+/* ===== データ取込 ===== */
+.drop-zone{border:2px dashed #cbd5e1;border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:12px;background:#fff}
+.drop-zone:hover{border-color:#2563eb;background:#f0f7ff}
+.dtable{width:100%;border-collapse:collapse;font-size:12px}
+.dtable th{text-align:left;padding:6px 10px;border-bottom:2px solid #e2e8f0;font-weight:600;color:#64748b;font-size:11px;background:#f8fafc;position:sticky;top:0}
+.dtable td{padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#334155}
+.dtable tr:hover td{background:#f8fafc}
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat{background:#f8fafc;border-radius:8px;padding:10px 16px;text-align:center;border:1px solid #e2e8f0;min-width:70px}
+.stat-n{font-size:20px;font-weight:700;color:#1e293b}
+.stat-l{font-size:10px;color:#64748b;margin-top:1px}
+
+/* 納期シミュレーション表 */
+.sim-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.sim-table th{text-align:left;padding:6px 10px;background:#f8fafc;font-size:11px;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0}
+.sim-table td{padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#334155}
+.sim-table tr:last-child td{border-bottom:none}
+.badge-ok{display:inline-block;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;background:#dcfce7;color:#166534}
+.badge-ng{display:inline-block;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;background:#fee2e2;color:#991b1b}
+.section-label{font-size:12px;font-weight:600;color:#64748b;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid #e2e8f0}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-header">
+    <div>
+      <h1>製造工数計算・納期シミュレーション</h1>
+      <p>工数計算 ／ 週間カレンダー ／ データ管理</p>
+    </div>
+    <div style="font-size:11px;opacity:.6">© 2026</div>
+  </div>
+
+  <div class="page-tabs">
+    <div class="ptab active" onclick="showPage('calc',this)">工数計算</div>
+    <div class="ptab" onclick="showPage('cal',this)">週間カレンダー</div>
+    <div class="ptab" onclick="showPage('data',this)">データ取込</div>
+  </div>
+
+  <!-- ===== 工数計算 ===== -->
+  <div class="page show" id="page-calc">
+    <div class="card">
+      <div class="card-title">入力情報</div>
+      <div class="form-grid">
+        <div class="fg"><label>会社名（任意）</label><input type="text" id="company" placeholder="例：大和冷機"></div>
+        <div class="fg"><label>受注番号</label><input type="text" id="order-num" placeholder="例：1019712-0"></div>
+        <div class="fg"><label>型式名（必須）</label><input type="text" id="model" placeholder="例：MF6列x2段x1350L-10A" oninput="onModelInput()"></div>
+        <div class="fg"><label>列数</label><input type="number" id="retsu" value="6" min="1"></div>
+        <div class="fg"><label>段数</label><input type="number" id="dan" value="2" min="1"></div>
+        <div class="fg"><label>EL（長さ mm）</label><input type="number" id="el" value="1350" min="0"></div>
+        <div class="fg"><label>FP（フィンピッチ mm）</label><input type="number" id="fp" value="10" min="1"></div>
+        <div class="fg">
+          <label>コイル数（拡管計算用）</label>
+          <div class="counter">
+            <button class="cbtn" onclick="adj('coil',-1)">−</button>
+            <span class="cval" id="coil-v">1</span>
+            <button class="cbtn" onclick="adj('coil',1)">＋</button>
+            <span style="font-size:11px;color:#94a3b8">本</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label>製品台数</label>
+          <div class="counter">
+            <button class="cbtn" onclick="adj('units',-1)">−</button>
+            <span class="cval" id="units-v">1</span>
+            <button class="cbtn" onclick="adj('units',1)">＋</button>
+            <span style="font-size:11px;color:#94a3b8">台</span>
+          </div>
+        </div>
+        <div class="fg">
+          <label>フィン材質</label>
+          <select id="fin">
+            <option value="auto">型式から自動判定</option>
+            <option value="A">A - アルミ</option>
+            <option value="C">C - 銅</option>
+            <option value="S">S - ステンレス</option>
+          </select>
+        </div>
+        <div class="fg"><label>ケーシング入荷日</label><input type="date" id="start-date"></div>
+        <div class="fg"><label>出荷日</label><input type="date" id="ship-date"></div>
+      </div>
+
+      <details style="margin-top:12px">
+        <summary style="font-size:12px;color:#64748b;cursor:pointer;padding:4px 0;font-weight:500">▶ 手動入力（過去実績を上書きしたい場合）</summary>
+        <div class="form-grid" style="margin-top:10px">
+          <div class="fg"><label>本組立 平均時間 (h)</label><input type="number" id="m-hon" placeholder="未入力で自動"></div>
+          <div class="fg"><label>ヘッダ製作 平均時間 (h)</label><input type="number" id="m-head" placeholder="未入力で自動"></div>
+        </div>
+      </details>
+
+      <div class="match-info" id="match-info"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="calculate()">計算する</button>
+        <button class="btn" onclick="resetForm()">リセット</button>
+      </div>
+    </div>
+
+    <div class="result-card" id="result-card">
+      <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:14px" id="res-title"></div>
+      <div class="res-grid" id="res-grid"></div>
+      <div id="res-sim"></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-green" id="add-waiting-btn" onclick="addToWaiting()">＋ 待機リストに追加</button>
+      </div>
+      <div id="add-waiting-msg" style="display:none;margin-top:8px;padding:8px 14px;background:#dcfce7;border-radius:7px;border-left:3px solid #22c55e;font-size:12px;color:#166534;font-weight:500">
+        ✓ 待機リストに追加しました！カレンダータブで確認できます。
+      </div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <span><span class="msrc s-f">計算式</span> 計算式による算出</span>
+        <span><span class="msrc s-e">完全一致</span> 同一型式の実績</span>
+        <span><span class="msrc s-d">実績平均</span> 近似型式の平均値</span>
+        <span><span class="msrc s-m">手動入力</span> 手動入力値</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- カレンダー追加モーダル -->
+  <div id="cal-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px">
+    <div style="background:#fff;border-radius:12px;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);margin:auto">
+      <div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">📅</span>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#1e293b">カレンダーに追加</div>
+          <div style="font-size:11px;color:#64748b;margin-top:1px">工程ごとに開始日と担当者を設定して追加します</div>
+        </div>
+      </div>
+      <div style="padding:12px 20px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:11px;color:#92400e;display:flex;align-items:center;gap:6px">
+        <span style="font-size:13px">⚠</span> 前工程の終了翌日が次工程の最小開始日として自動設定されます
+      </div>
+      <div style="padding:0 0 16px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#1e3a5f">
+              <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:#fff;width:130px">工程 / 合計時間</th>
+              <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:#fff">設定</th>
+            </tr>
+          </thead>
+          <tbody id="cal-add-body"></tbody>
+        </table>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn" onclick="closeCalAddModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 残業設定モーダル -->
+  <div id="zangyou-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="padding:18px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;position:sticky;top:0;background:#fff;z-index:1">
+        <span style="font-size:18px">🌙</span>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;color:#1e293b">残業・休日出勤設定</div>
+          <div style="font-size:11px;color:#64748b;margin-top:1px">土曜・日曜・祝日を選択して稼働日にできます</div>
+        </div>
+        <button class="btn btn-primary" onclick="closeZangyouModal()">閉じる</button>
+      </div>
+
+      <!-- 残業時間設定 -->
+      <div style="padding:14px 20px;border-bottom:1px solid #f1f5f9">
+        <div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:10px">残業時間設定（期間指定）</div>
+        <div id="zangyou-list" style="margin-bottom:10px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div class="fg"><label>開始日</label><input type="date" id="zan-from"></div>
+          <div class="fg"><label>終了日</label><input type="date" id="zan-to"></div>
+        </div>
+        <div class="fg" style="margin-bottom:10px">
+          <label>残業時間（1日あたり）</label>
+          <select id="zan-hours" style="height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 10px;font-size:13px;background:#fff;color:#1e293b">
+            <option value="0">0時間（8h/日・休日出勤のみ）</option>
+            <option value="0.5">0.5時間（8.5h/日）</option>
+            <option value="1" selected>1時間（9h/日）</option>
+            <option value="1.5">1.5時間（9.5h/日）</option>
+            <option value="2">2時間（10h/日）</option>
+            <option value="2.5">2.5時間（10.5h/日）</option>
+            <option value="3">3時間（11h/日）</option>
+            <option value="3.5">3.5時間（11.5h/日）</option>
+            <option value="4">4時間（12h/日）</option>
+            <option value="4.5">4.5時間（12.5h/日）</option>
+            <option value="5">5時間（13h/日）</option>
+            <option value="5.5">5.5時間（13.5h/日）</option>
+            <option value="6">6時間（14h/日）</option>
+            <option value="6.5">6.5時間（14.5h/日）</option>
+            <option value="7">7時間（15h/日）</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="addZangyou()">＋ 残業設定を追加</button>
+      </div>
+
+      <!-- 休日出勤選択 -->
+      <div style="padding:14px 20px">
+        <div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">休日出勤選択</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:10px">チェックした日は8hの稼働日として計算に含まれます。祝日は常に選択可能です。</div>
+        <div id="holiday-picker" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- カレンダー直接入力モーダル -->
+  <div id="direct-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;width:360px;max-width:94vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <div style="width:12px;height:12px;border-radius:3px;background:#ec4899;flex-shrink:0"></div>
+        <div style="font-size:15px;font-weight:700;color:#1e293b">カレンダーに直接追加</div>
+      </div>
+      <div id="direct-add-target" style="font-size:12px;color:#64748b;margin-bottom:14px;background:#f8fafc;border-radius:6px;padding:6px 10px"></div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="fg" style="grid-column:1/-1">
+          <label>工程名</label>
+          <select id="da-proc" onchange="toggleDaProcCustom(this.value)">
+            <option value="ヘッダ製作">ヘッダ製作</option>
+            <option value="フィン抜き">フィン抜き</option>
+            <option value="拡管">拡管</option>
+            <option value="仮組立">仮組立</option>
+            <option value="溶接">溶接</option>
+            <option value="本組立">本組立</option>
+            <option value="その他">その他</option>
+          </select>
+          <input type="text" id="da-proc-custom" placeholder="工程名を入力（例：出荷、検査）"
+            style="display:none;margin-top:6px;height:36px;border:1px solid #e2e8f0;border-radius:6px;padding:0 10px;font-size:13px;background:#fff;color:#1e293b;width:100%">
+        </div>
+        <div class="fg">
+          <label>時間 (h)</label>
+          <input type="number" id="da-hours" value="8" min="0.25" step="0.25">
+        </div>
+        <div class="fg">
+          <label>会社名</label>
+          <input type="text" id="da-company" placeholder="任意">
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label>型式 / メモ</label>
+          <input type="text" id="da-model" placeholder="任意">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="closeDirectAdd()">キャンセル</button>
+        <button class="btn" style="background:#ec4899;color:#fff;border-color:#ec4899;font-weight:600" onclick="confirmDirectAdd()">＋ 追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 担当者管理モーダル -->
+  <div id="tanto-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;width:340px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:16px">担当者の管理</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:500">現在の担当者</div>
+      <div id="tanto-list" style="margin-bottom:16px"></div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:500">担当者を追加</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input type="text" id="tanto-input" placeholder="担当者名を入力" style="flex:1" onkeydown="if(event.key==='Enter')doAddTanto()">
+        <button class="btn btn-green" onclick="doAddTanto()">追加</button>
+      </div>
+      <div style="text-align:right"><button class="btn btn-primary" onclick="closeTantoModal()">閉じる</button></div>
+    </div>
+  </div>
+
+  <!-- ===== カレンダー ===== -->
+  <div class="page" id="page-cal">
+    <div class="cal-nav">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-dark" onclick="changeWeek(-1)">＜ 前週</button>
+        <button class="btn btn-orange" onclick="goToday()">今週</button>
+      </div>
+      <div class="cal-nav-center" id="week-title"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="changeWeek(1)">次週 ＞</button>
+        <button class="btn" id="zan-btn" onclick="openZangyouModal()" style="background:#1e293b;color:#fff;border-color:#1e293b">🌙 残業設定</button>
+        <button class="btn btn-dark" onclick="openTantoModal()">担当者管理</button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><div class="ldot" style="background:#ef4444"></div>ヘッダ製作</div>
+      <div class="leg-item"><div class="ldot" style="background:#f97316"></div>フィン抜き</div>
+      <div class="leg-item"><div class="ldot" style="background:#22c55e"></div>拡管</div>
+      <div class="leg-item"><div class="ldot" style="background:#eab308"></div>仮組立</div>
+      <div class="leg-item"><div class="ldot" style="background:#3b82f6"></div>溶接</div>
+      <div class="leg-item"><div class="ldot" style="background:#8b5cf6"></div>本組立</div>
+      <div class="leg-item"><div class="ldot" style="background:#64748b"></div>その他</div>
+      <div class="leg-item"><div class="ldot" style="background:#ec4899"></div>直接入力</div>
+      <div class="leg-item"><div class="ldot" style="background:#fce7f3;border:1px solid #f9a8d4"></div>残業枠</div>
+    </div>
+
+    <div class="cal-wrap">
+      <table class="cal" id="cal-table"></table>
+    </div>
+
+    <div style="margin-top:18px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="font-size:16px;font-weight:700;color:#1e293b">受注待機リスト</div>
+        <div class="bdg-count" id="waiting-count">0件</div>
+        <div style="font-size:11px;color:#94a3b8;margin-left:4px">カードをクリックするとカレンダーに追加できます</div>
+      </div>
+      <div class="wcards" id="cards-area"></div>
+    </div>
+  </div>
+
+  <!-- ===== データ取込 ===== -->
+  <div class="page" id="page-data">
+    <div class="card">
+      <div class="card-title">Excelファイル取込</div>
+      <div class="drop-zone" onclick="document.getElementById('file-in').click()" id="drop-zone">
+        <div style="font-size:36px;margin-bottom:8px">📂</div>
+        <div style="font-size:14px;color:#475569;font-weight:500">クリックまたはドラッグ＆ドロップ</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">工程時間2026.xlsx などの Excel ファイル（.xlsx / .xls）</div>
+      </div>
+      <input type="file" id="file-in" accept=".xlsx,.xls" style="display:none" onchange="loadFile(this)">
+      <div id="file-status" style="font-size:12px;color:#64748b"></div>
+    </div>
+
+    <div id="data-result" style="display:none">
+      <div class="card">
+        <div class="card-title">読み込み結果</div>
+        <div class="stat-row" id="stat-row"></div>
+        <div id="excel-del-btn-area" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+          <button id="excel-delete-selected-btn" onclick="deleteSelectedExcel()" style="display:none;font-size:11px;color:#fff;background:#ef4444;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-weight:600">🗑 選択削除</button>
+          <span id="excel-select-count" style="font-size:11px;color:#94a3b8"></span>
+        </div>
+        <div style="overflow-x:auto;max-height:500px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px">
+          <table class="dtable" id="data-table" style="width:100%"></table>
+        </div>
+      </div>
+
+    <!-- 手打ちデータ入力 -->
+    <div class="card" style="margin-top:4px">
+      <div class="card-title">手打ちデータ入力</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px">Excelがなくても1件ずつ手入力でデータを追加できます。追加したデータは型式マッチングに使われます。</div>
+      <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:10px">
+        <div class="fg"><label>会社名</label><input type="text" id="mi-company" placeholder="例：大和冷機"></div>
+        <div class="fg"><label>型式（必須）</label><input type="text" id="mi-model" placeholder="例：MF6x2x1350L"></div>
+        <div class="fg"><label>受注番号</label><input type="text" id="mi-order" placeholder="任意"></div>
+        <div class="fg"><label>ヘッダ製作 (h)</label><input type="number" id="mi-head" placeholder="—" min="0" step="0.25"></div>
+        <div class="fg"><label>フィン抜き (h)</label><input type="number" id="mi-fin" placeholder="—" min="0" step="0.25"></div>
+        <div class="fg"><label>拡管 (h)</label><input type="number" id="mi-kou" placeholder="—" min="0" step="0.25"></div>
+        <div class="fg"><label>仮組立 (h)</label><input type="number" id="mi-kari" placeholder="—" min="0" step="0.25"></div>
+        <div class="fg"><label>溶接 (h)</label><input type="number" id="mi-you" placeholder="—" min="0" step="0.25"></div>
+        <div class="fg"><label>本組立 (h)</label><input type="number" id="mi-hon" placeholder="—" min="0" step="0.25"></div>
+      </div>
+      <button onclick="addManualDataAndSave()" style="height:36px;padding:0 20px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">💾 追加してアプリに保存</button>
+      <div id="manual-msg" style="display:none;margin-top:8px;padding:6px 12px;background:#dcfce7;border-radius:6px;font-size:12px;color:#166534;font-weight:500">✓ 追加して保存しました！</div>
+    </div>
+
+    <!-- 手打ちデータ一覧 -->
+    <div class="card" id="manual-data-card" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div class="card-title" style="margin-bottom:0">手打ちデータ一覧</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button id="manual-delete-selected-btn" onclick="deleteSelectedManual()" style="display:none;font-size:11px;color:#fff;background:#ef4444;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-weight:600;align-items:center;gap:4px">🗑 選択削除</button>
+          <button onclick="exportManualData()" style="font-size:11px;color:#1d4ed8;background:#dbeafe;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-weight:600">📥 書き出し</button>
+          <label style="font-size:11px;color:#166534;background:#dcfce7;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-weight:600">📤 読み込み<input type="file" accept=".json" onchange="importManualData(this)" style="display:none"></label>
+          <button onclick="saveUpdatedApp()" style="font-size:11px;color:#fff;background:#1d4ed8;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-weight:600">💾 アプリに保存</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px">
+        <table class="dtable" id="manual-table" onchange="updateManualDeleteBtn()"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Supabase設定（直接REST API）=====
+const SUPA_URL = 'https://gnbgeuecgdevrxwdzgok.supabase.co';
+const SUPA_KEY = 'sb_publishable_T52K-qTofUxcGFATKKB4ag_AZZnBHfw';
+const SUPA_HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPA_KEY,
+  'Authorization': 'Bearer ' + SUPA_KEY,
+  'Prefer': 'resolution=merge-duplicates'
+};
+
+function showSyncStatus(ok, msg){
+  let el = document.getElementById('sync-status');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'sync-status';
+    el.style.cssText = 'position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;max-width:300px;word-break:break-all';
+    document.body.appendChild(el);
+  }
+  el.style.background = ok ? '#dcfce7' : '#fee2e2';
+  el.style.color = ok ? '#166534' : '#991b1b';
+  el.style.display = 'block';
+  el.textContent = (ok ? '✓ ' : '⚠ ') + msg;
+  clearTimeout(el._timer);
+  el._timer = setTimeout(()=>{ el.style.display='none'; }, 6000);
+}
+
+async function cloudSave(key, value){
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/app_data`, {
+      method: 'POST',
+      headers: SUPA_HEADERS,
+      body: JSON.stringify({id: key, data: value, updated_at: new Date().toISOString()})
+    });
+    return res.ok;
+  }catch(e){ console.error('cloudSave error', e); return false; }
+}
+
+async function cloudLoad(key){
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/app_data?id=eq.${key}&select=data`, {
+      headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY}
+    });
+    const arr = await res.json();
+    return arr && arr.length > 0 ? arr[0].data : null;
+  }catch(e){ return null; }
+}
+
+async function syncAllToCloud(){
+  const results = await Promise.all([
+    cloudSave('manualData', manualData),
+    cloudSave('waitingList', waitingList),
+    cloudSave('calBlocks', calBlocks),
+    cloudSave('tantos', tantos),
+    cloudSave('zangyouList', zangyouList),
+    cloudSave('workDays', Array.from(workDays)),
+  ]);
+  const ok = results.every(r=>r!==false);
+  showSyncStatus(ok, ok ? '保存しました' : '保存に失敗しました');
+}
+
+async function loadAllFromCloud(){
+  showSyncStatus(true, '接続中...');
+  try{
+    const res = await fetch(`${SUPA_URL}/rest/v1/app_data?select=id,data`, {
+      headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY}
+    });
+    const text = await res.text();
+    let arr;
+    try{ arr = JSON.parse(text); }catch(e){ showSyncStatus(false, 'JSON解析失敗: '+text.slice(0,80)); return; }
+    if(!Array.isArray(arr)){ showSyncStatus(false, 'エラー: '+text.slice(0,80)); return; }
+    const map = {};
+    arr.forEach(r=>{ map[r.id]=r.data; });
+    if(map['manualData']) manualData = map['manualData'];
+    if(map['waitingList']) waitingList = map['waitingList'];
+    if(map['calBlocks']) calBlocks = map['calBlocks'];
+    if(map['tantos'] && Array.isArray(map['tantos'])) tantos = map['tantos'];
+    if(map['zangyouList'] && Array.isArray(map['zangyouList'])) zangyouList = map['zangyouList'];
+    if(map['workDays'] && Array.isArray(map['workDays'])) workDays = new Set(map['workDays']);
+    showSyncStatus(true, 'データ読み込み完了（'+arr.length+'件）');
+  }catch(e){
+    showSyncStatus(false, '接続エラー: '+e.message);
+  }
+}
+</script>
+<script>
+const PROCS=['ヘッダ製作','フィン抜き','拡管','仮組立','溶接','本組立'];
+const PCOL={'ヘッダ製作':'#ef4444','フィン抜き':'#f97316','拡管':'#22c55e','仮組立':'#eab308','溶接':'#3b82f6','本組立':'#8b5cf6','その他':'#64748b'};
+const DAYS_JP=['月','火','水','木','金','土','日'];
+
+let coil=1, units=1;
+let importedData=[{"会社名": "大和冷機", "受注番号": "1019712-0", "型式": "エバポレーター6", "ヘッダ製作": 5.2, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": 21.0, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019699 - 0", "型式": "天吊MF6列x2段x1350L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.0, "溶接": 4.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019705 - 0", "型式": "床置MF6列x2段x405L-6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.5, "溶接": 2.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019706 - 0", "型式": "床置MF4列x2段x1520L-6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.4, "溶接": 1.8, "本組立": null}, {"会社名": "中部技術サービス", "受注番号": "1019674 - 0", "型式": "HMBC-38H-A8.0-S-KH7.0", "ヘッダ製作": 8.5, "フィン抜き": 11.0, "拡管": 4.25, "仮組立": 5.3, "溶接": 11.3, "本組立": 74.5}, {"会社名": "共和冷温製造", "受注番号": "1019683 - 0", "型式": "KMF-51012004.0H-S", "ヘッダ製作": 2.5, "フィン抜き": 3.25, "拡管": 1.0, "仮組立": 4.25, "溶接": 5.0, "本組立": 10.2}, {"会社名": "九低システム", "受注番号": "0", "型式": "FVFC-203W-A1210.0-D02G-F-D 修理", "ヘッダ製作": 5.5, "フィン抜き": 9.5, "拡管": null, "仮組立": 4.5, "溶接": 25.5, "本組立": 55.5}, {"会社名": "西部技研", "受注番号": "1019688 - 0", "型式": "直膨ｺｲﾙ(PC) MF14103002.5", "ヘッダ製作": 2.5, "フィン抜き": null, "拡管": 2.0, "仮組立": 3.5, "溶接": 17.5, "本組立": null}, {"会社名": "西部技研", "受注番号": "1019692 - 0", "型式": "冷水ｺｲﾙ MF4104003.0", "ヘッダ製作": 12.75, "フィン抜き": null, "拡管": 2.0, "仮組立": 8.3, "溶接": 16.35, "本組立": 47.8}, {"会社名": "西部技研", "受注番号": "1019702 - 0", "型式": "冷水ｺｲﾙ MF4104003.0", "ヘッダ製作": 3.5, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": null}, {"会社名": "平岩熱学", "受注番号": "1019634 - 0", "型式": "HVBC-171W-A10.0-F03G-F", "ヘッダ製作": 6.0, "フィン抜き": 6.0, "拡管": 4.0, "仮組立": 7.5, "溶接": 12.05, "本組立": 95.4}, {"会社名": "沖縄三菱", "受注番号": "1019690 - 0", "型式": "HVBC-73HF-A10.0-F02G-A-R", "ヘッダ製作": 4.5, "フィン抜き": 4.5, "拡管": 2.75, "仮組立": null, "溶接": null, "本組立": null}, {"会社名": "西日本機材 本社", "受注番号": "1019608 - 0", "型式": "コスモファン CF-N62(CF-30相当品)", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 115.0}, {"会社名": "日本厨房", "受注番号": "1019533 - 0", "型式": "天吊MF7列x2段x4500L-12    ※2325Lを2台製作する", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.0, "溶接": 1.6, "本組立": 0.8}, {"会社名": "日本厨房", "受注番号": "1019544 - 0", "型式": "天吊MF6列x2段x724L-8 両サイドＦｉＮを1枚マイナス", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": null, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019540 - 0", "型式": "天吊MF4列x2段x980L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": null, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019548 - 0", "型式": "天吊MF4列x2段X1570L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": 1.3, "本組立": null}, {"会社名": "三菱重工冷熱", "受注番号": "1019456 - 0", "型式": "防爆型HMBC-127AT-A6.0-F03E-F", "ヘッダ製作": 5.5, "フィン抜き": 4.5, "拡管": 2.0, "仮組立": 3.15, "溶接": 7.85, "本組立": 20.7}, {"会社名": "光栄", "受注番号": "1019551 - 0", "型式": "床置MF8列x2段x1580L-6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.0, "溶接": null, "本組立": null}, {"会社名": "光栄", "受注番号": "1019551 - 1", "型式": "床置MF6列x3段x2190L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.5, "仮組立": 0.75, "溶接": null, "本組立": null}, {"会社名": "光栄", "受注番号": "1019554 - 0", "型式": "床置MF8列x3段x950L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.45, "本組立": null}, {"会社名": "光栄", "受注番号": "1019554 - 1", "型式": "天吊MF6列x2段x990L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 0.95, "本組立": null}, {"会社名": "西部技研", "受注番号": "1019536 - 0", "型式": "直膨コイル(PC)　MF1483002.0", "ヘッダ製作": 2.5, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.25, "溶接": 6.5, "本組立": 2.25}, {"会社名": "西部技研", "受注番号": "1019536 - 1", "型式": "直膨コイル(IC)　MF8145003.0", "ヘッダ製作": 3.0, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.0, "溶接": 10.5, "本組立": 2.5}, {"会社名": "西部技研", "受注番号": "1019536 - 2", "型式": "直膨コイル(AC)　MF2105503.0D", "ヘッダ製作": 0.5, "フィン抜き": null, "拡管": 0.5, "仮組立": 1.0, "溶接": 2.5, "本組立": 6.25}, {"会社名": "大和冷機工業", "受注番号": "1019559 - 0", "型式": "床置MF10列x3段x850L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.25, "仮組立": 1.25, "溶接": 2.5, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019564 - 0", "型式": "MF4列x3段x1550L､FP=6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 2.5, "仮組立": 0.5, "溶接": 3.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019576 - 0", "型式": "床置MF6列x3段x1570L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.0, "溶接": 3.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019577 - 0", "型式": "床置MF6列x3段x1190L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 2.0, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019570 - 1", "型式": "MF6列x3段x1700L､FP=8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 2.0, "本組立": null}, {"会社名": "ナカヨシ冷凍", "受注番号": "1019484 - 0", "型式": "HMBC-8A-C8.0-F01C-A", "ヘッダ製作": 2.5, "フィン抜き": null, "拡管": 2.75, "仮組立": 2.5, "溶接": 10.5, "本組立": 12.75}, {"会社名": "大和冷機工業", "受注番号": "1019570 - 0", "型式": "天吊MF6列x2段X1200l-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 2.0, "本組立": null}, {"会社名": "アメフレック", "受注番号": "1019542 - 0", "型式": "ｺｲﾙﾕﾆｯﾄ-MF12145203.5", "ヘッダ製作": 1.0, "フィン抜き": null, "拡管": 1.5, "仮組立": 4.5, "溶接": null, "本組立": null}, {"会社名": "平岩熱学", "受注番号": "1019475 - 0", "型式": "FVBC-375W-A9.0-D03K-F", "ヘッダ製作": 11.0, "フィン抜き": 8.25, "拡管": 7.5, "仮組立": 8.25, "溶接": null, "本組立": 100.5}, {"会社名": "光栄", "受注番号": "1019555 - 0", "型式": "床置MF6列x3段x950L-15", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.75, "仮組立": null, "溶接": 7.5, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019567 - 0", "型式": "ｴﾊﾞﾎﾟﾚｰﾀ6(ﾌﾙｶﾗｰ)MF2x18x1280EL､P=10", "ヘッダ製作": 8.75, "フィン抜き": 3.0, "拡管": 5.25, "仮組立": 0.4, "溶接": 18.15, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019574 - 0", "型式": "MF6列x2段x1200L､FP=10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": null, "溶接": 2.0, "本組立": null}, {"会社名": "光栄", "受注番号": "1019579 - 0", "型式": "壁掛MF5列x2段x1250L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019579 - 1", "型式": "天吊MF5列x2段x1560L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019580 - 0", "型式": "床置MF8列x2段x1580L-6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.0, "溶接": 2.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019581 - 0", "型式": "床置MF8列x3段x2500L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 2.25, "溶接": 3.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019581 - 1", "型式": "床置MF8列x3段x3410L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.25, "仮組立": 0.5, "溶接": 1.0, "本組立": null}, {"会社名": "マツオ冷凍工業", "受注番号": "1019589 - 0", "型式": "SUS部品", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 4.3}, {"会社名": "日本厨房", "受注番号": "1019592 - 0", "型式": "床置MF5列x3段x630L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.25, "溶接": 2.25, "本組立": null}, {"会社名": "大和冷機工", "受注番号": "1019584 - 0", "型式": "床置MF8列x3段x550L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.75, "仮組立": 1.0, "溶接": 2.5, "本組立": null}, {"会社名": "西部技研", "受注番号": "1019506 - 0", "型式": "冷水ｺｲﾙ MF4104003.0", "ヘッダ製作": 6.5, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.6, "溶接": 9.95, "本組立": 13.7}, {"会社名": "西部技研", "受注番号": "1019557 - 0", "型式": "直膨ｺｲﾙ（PC1） MF441002.0", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.4, "溶接": 1.65, "本組立": null}, {"会社名": "西部技研", "受注番号": "1019560 - 0", "型式": "直膨コイル(PC)　MF1683503.0", "ヘッダ製作": 3.5, "フィン抜き": null, "拡管": 2.25, "仮組立": 2.5, "溶接": null, "本組立": null}, {"会社名": "西部技研", "受注番号": "1019560 - 1", "型式": "直膨コイル（AC）MF4166703.0D", "ヘッダ製作": 1.0, "フィン抜き": null, "拡管": 1.25, "仮組立": 2.0, "溶接": null, "本組立": null}, {"会社名": "共和冷温製造", "受注番号": "1019587 - 0", "型式": "KMF-51012004.0H-S", "ヘッダ製作": 2.5, "フィン抜き": 3.25, "拡管": 1.5, "仮組立": 2.0, "溶接": 3.5, "本組立": 7.75}, {"会社名": "日本厨房", "受注番号": "1019599 - 0", "型式": "床置MF5列x2段x1200L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.9, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019600 - 0", "型式": "床置MF6列x3段x1410L､-2", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 0.4, "溶接": 1.8, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019601 - 0", "型式": "床置MF6列x3段x920L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.25, "仮組立": 1.0, "溶接": 2.3, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019601 - 1", "型式": "床置MF6列x3段x740L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 0.5, "溶接": 1.3, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019610 - 0", "型式": "天吊MF10列x1段x1500L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.5, "仮組立": 1.3, "溶接": 3.2, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019610 - 1", "型式": "天吊MF10列x1段x1200L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.5, "仮組立": 2.0, "溶接": 3.0, "本組立": null}, {"会社名": "新菱テクニカル工業", "受注番号": "1019569 - 0", "型式": "蒸気ｺｲﾙ SF1169502.0", "ヘッダ製作": 19.5, "フィン抜き": null, "拡管": 3.0, "仮組立": 2.5, "溶接": null, "本組立": 13.5}, {"会社名": "戸畑冷凍工業", "受注番号": "1019624 - 0", "型式": "分流器 φ12.7xφ6.35x2P＜主管φ12.7:200mm、枝管φ6.35:300mm＞", "ヘッダ製作": 1.0, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": null}, {"会社名": "光栄", "受注番号": "1019604 - 0", "型式": "壁掛MF6列x2段x880L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019605 - 0", "型式": "天吊MF4列x3段x1200L-6", "ヘッダ製作": null, "フィン抜き": 0.75, "拡管": 0.5, "仮組立": 0.5, "溶接": 1.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019620 - 0", "型式": "床置MF5列x2段x1520L-6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.25, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019621 - 0", "型式": "床置MF6列x2段x800L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "南設備工業", "受注番号": "1019550 - 0", "型式": "HVBC-186HF-A8.0-F04G-F-D", "ヘッダ製作": 4.5, "フィン抜き": 1.5, "拡管": 3.75, "仮組立": 3.0, "溶接": 15.75, "本組立": 103.35}, {"会社名": "西部技研", "受注番号": "1019583 - 0", "型式": "直膨コイル（PC）MF18103103.0D", "ヘッダ製作": 2.0, "フィン抜き": null, "拡管": 1.0, "仮組立": 3.55, "溶接": 8.0, "本組立": 16.2}, {"会社名": "西部技研", "受注番号": "1019583 - 1", "型式": "直膨コイル（AC）MF6103603.0D", "ヘッダ製作": 2.5, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.0, "溶接": 5.0, "本組立": 8.25}, {"会社名": "大和冷機工業", "受注番号": "1019598 - 0", "型式": "ｴﾊﾞﾎﾟﾚｰﾀ6(ﾌﾙｶﾗｰ)", "ヘッダ製作": 6.2, "フィン抜き": null, "拡管": 5.75, "仮組立": 2.3, "溶接": 20.4, "本組立": null}, {"会社名": "南設備工業", "受注番号": "1019596 - 0", "型式": "電子膨張弁制御盤", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 11.0}, {"会社名": "大和冷機工業", "受注番号": "1019618 - 0", "型式": "ﾌｨﾝｸｰﾗｰMF4列x3段x900L-5", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": 1.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019626 - 0", "型式": "壁付MF6列x2段x700L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.0, "本組立": null}, {"会社名": "光栄", "受注番号": "1019631 - 0", "型式": "床置MF6列x3段x3410L-10", "ヘッダ製作": 1.0, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.0, "溶接": 3.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019632 - 0", "型式": "床置MF8列x2段x3410L-6", "ヘッダ製作": 0.5, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.75, "溶接": 1.5, "本組立": null}, {"会社名": "東和産業九州", "受注番号": "1019607 - 0", "型式": "床置き型ファンユニット", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 34.0}, {"会社名": "大和冷熱", "受注番号": "1019558 - 0", "型式": "WHMBC-175A-A3.0-F01G-G-Z", "ヘッダ製作": 7.0, "フィン抜き": null, "拡管": 2.25, "仮組立": 7.0, "溶接": 11.0, "本組立": 30.0}, {"会社名": "日立ｸﾞﾛｰﾊﾞﾙﾗｲﾌｿﾘｭｰｼｮﾝｽ", "受注番号": "1019603 - 0", "型式": "HMBC-11AT-A6.0-F01B-A-R", "ヘッダ製作": 4.75, "フィン抜き": 0.75, "拡管": 1.0, "仮組立": 2.5, "溶接": 8.5, "本組立": 25.25}, {"会社名": "日立ｸﾞﾛｰﾊﾞﾙﾗｲﾌｿﾘｭｰｼｮﾝｽ", "受注番号": "1019603 - 1", "型式": "HMBC-21AT-A6.0-F02B-A-R", "ヘッダ製作": 3.25, "フィン抜き": 0.75, "拡管": 1.0, "仮組立": 2.5, "溶接": 6.0, "本組立": 27.25}, {"会社名": "西部技研", "受注番号": "1019594 - 0", "型式": "直膨コイル　MF1882203.0", "ヘッダ製作": 8.5, "フィン抜き": null, "拡管": 7.0, "仮組立": 12.25, "溶接": 45.3, "本組立": 8.5}, {"会社名": "日本厨房", "受注番号": "1019636 - 0", "型式": "天吊MF4列x2段1280L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 0.5, "溶接": 1.2, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019639 - 0", "型式": "床置MF7列x2段x1210L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.55, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019639 - 1", "型式": "床置MF7列x2段x1000L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 3.0, "本組立": null}, {"会社名": "岩切冷凍", "受注番号": "1019568 - 0", "型式": "HSBC-48W-A6.0-S01G-S", "ヘッダ製作": 4.5, "フィン抜き": null, "拡管": 21.0, "仮組立": 11.3, "溶接": 15.8, "本組立": 90.1}, {"会社名": "本社", "受注番号": "1019602 - 0", "型式": "ｺｽﾓﾌｧﾝ CF-300", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 3.5}, {"会社名": "平岩熱学", "受注番号": "1019495 - 0", "型式": "F2VUC-450W-C12.0-DS03K-S", "ヘッダ製作": 11.5, "フィン抜き": null, "拡管": 30.75, "仮組立": 11.0, "溶接": null, "本組立": 168.65}, {"会社名": "株式会社　奥村組", "受注番号": "1019527 - 0", "型式": "防爆型天吊冷却器 HMBC-28AT-A6.0-F01E-A", "ヘッダ製作": 6.0, "フィン抜き": 2.75, "拡管": 1.25, "仮組立": 3.15, "溶接": 13.55, "本組立": 32.25}, {"会社名": "株式会社　奥村組", "受注番号": "1019527 - 1", "型式": "防爆型天吊冷却器 HMBC-102AT-A4.0-F02E-A", "ヘッダ製作": 13.0, "フィン抜き": 6.5, "拡管": 10.0, "仮組立": 8.35, "溶接": 55.9, "本組立": 92.85}, {"会社名": "株式会社　奥村組", "受注番号": "1019527 - 2", "型式": "防爆型天吊冷却器 HVBC-94WT-A8.0-F02E-F", "ヘッダ製作": 3.5, "フィン抜き": 6.75, "拡管": 4.0, "仮組立": 2.5, "溶接": null, "本組立": 85.95}, {"会社名": "三菱電機冷熱   国松工業", "受注番号": "1019448 - 0", "型式": "HMBC-25H-A5.0-F02B-FP-KAZ", "ヘッダ製作": 3.5, "フィン抜き": 3.0, "拡管": 1.75, "仮組立": 0.8, "溶接": null, "本組立": 130.05}, {"会社名": "ホシザキ北九", "受注番号": "1019534 - 0", "型式": "コスモファン CF-300", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 18.5}, {"会社名": "西部技研", "受注番号": "1019609 - 0", "型式": "直膨コイル（PC）MF1462003.0D", "ヘッダ製作": 2.0, "フィン抜き": null, "拡管": 1.0, "仮組立": 2.5, "溶接": null, "本組立": 11.0}, {"会社名": "西部技研", "受注番号": "1019609 - 1", "型式": "直膨コイル（AC）MF4124003.0D", "ヘッダ製作": 1.5, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.8, "溶接": null, "本組立": 7.95}, {"会社名": "日本厨房", "受注番号": "1019641 - 0", "型式": "床置MF6列x3段x950L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.0, "溶接": 2.7, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019641 - 1", "型式": "床置MF6列x3段x650L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.3, "本組立": null}, {"会社名": "日立ｸﾞﾛｰﾊﾞﾙﾗｲﾌｿﾘｭｰｼｮﾝｽ", "受注番号": "1019566 - 0", "型式": "HMBC-37AT-A6.0-F02G-F-R", "ヘッダ製作": 4.0, "フィン抜き": 1.25, "拡管": 2.0, "仮組立": 2.75, "溶接": 9.5, "本組立": 38.95}, {"会社名": "西部技研", "受注番号": "1019630 - 0", "型式": "冷水ｺｲﾙ MF4104003.0", "ヘッダ製作": 4.5, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.5, "溶接": 3.25, "本組立": 14.5}, {"会社名": "大和冷機工業", "受注番号": "1019637 - 0", "型式": "天吊MF6列x2段x2000L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": 3.0, "本組立": null}, {"会社名": "光栄", "受注番号": "1019649 - 0", "型式": "床置MF6列x3段x950L-15", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": null, "溶接": 2.2, "本組立": null}, {"会社名": "光栄", "受注番号": "1019655 - 0", "型式": "床置MF6列x3段x880L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": null, "溶接": null, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019646 - 0", "型式": "天吊MF4列x2段x980L-8", "ヘッダ製作": null, "フィン抜き": 0.5, "拡管": 0.75, "仮組立": 1.0, "溶接": 1.75, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019663 - 0", "型式": "F/C MF7列x2段x798L-8", "ヘッダ製作": null, "フィン抜き": 0.5, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019663 - 1", "型式": "F/C MF7列x2段x732L､FP=8", "ヘッダ製作": null, "フィン抜き": 0.5, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "平岩熱学", "受注番号": "1019494 - 0", "型式": "F2VBC-587W-A10.0-D04L-F", "ヘッダ製作": 47.5, "フィン抜き": 20.75, "拡管": 32.75, "仮組立": 40.3, "溶接": 69.25, "本組立": 279.55}, {"会社名": "エースエンジニアリング", "受注番号": "1019644 - 0", "型式": "FC-2400G用ﾄﾞﾚﾝﾊﾟﾝ", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 19.25}, {"会社名": "ケイツウ", "受注番号": "1019647 - 0", "型式": "蒸気ｺｲﾙ　MF263604.0", "ヘッダ製作": 7.0, "フィン抜き": 1.0, "拡管": 0.75, "仮組立": 1.0, "溶接": 3.0, "本組立": 0.5}, {"会社名": "大和冷機工業", "受注番号": "1019658 - 0", "型式": "天吊MF6列x2段x2250L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.0, "溶接": 2.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019664 - 0", "型式": "F/C MF6列x2段x1010L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.0, "溶接": 4.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019659 - 0", "型式": "F/C MF6列x2段x3440L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 2.0, "仮組立": 1.5, "溶接": 3.25, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019659 - 1", "型式": "F/C MF6列x1段x3440L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 2.0, "仮組立": 1.5, "溶接": 2.5, "本組立": null}, {"会社名": "日立ｸﾞﾛｰﾊﾞﾙﾗｲﾌｿﾘｭｰｼｮﾝｽ", "受注番号": "1019588 - 0", "型式": "HMBC-26AT-A4.0-F01B-F-R", "ヘッダ製作": 6.5, "フィン抜き": 1.75, "拡管": 3.5, "仮組立": 5.25, "溶接": 20.0, "本組立": 25.75}, {"会社名": "大和冷機工業", "受注番号": "1019661 - 0", "型式": "F/C MF10列x3段x850L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.0, "溶接": 1.5, "本組立": 0.5}, {"会社名": "大和冷機工業", "受注番号": "1019670 - 0", "型式": "床置MF6列x3段x1350EL-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.0, "溶接": 2.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019675 - 0", "型式": "床置MF6列x3段X1180l-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.0, "溶接": 2.5, "本組立": null}, {"会社名": "光栄", "受注番号": "1019675 - 1", "型式": "床置MF6列x3段x860L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 2.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019665 - 0", "型式": "床置MF8列x2段x2600L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.5, "仮組立": 2.0, "溶接": 6.3, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019666 - 0", "型式": "床置MF5列x2段x705L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.0, "溶接": 2.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019677 - 0", "型式": "床置MF5列x2段x680L-6", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.5, "溶接": 4.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019677 - 1", "型式": "床置MF7列x2段x370L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "信栄冷機工業", "受注番号": "1019622 - 0", "型式": "HMBC-33A-A4.0-F02C-A", "ヘッダ製作": 2.0, "フィン抜き": 1.0, "拡管": 1.0, "仮組立": 3.25, "溶接": 6.35, "本組立": 11.7}, {"会社名": "ホシザキ中国", "受注番号": "1019615 - 0", "型式": "コスモファン CF-30", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 5.0}, {"会社名": "西部技研", "受注番号": "1019638 - 0", "型式": "直膨コイル(PC)　MF16124003.0", "ヘッダ製作": 4.0, "フィン抜き": null, "拡管": 1.25, "仮組立": 3.25, "溶接": 9.25, "本組立": 3.5}, {"会社名": "西部技研", "受注番号": "1019638 - 1", "型式": "直膨コイル(AC)　MF6104003.0D", "ヘッダ製作": 3.5, "フィン抜き": null, "拡管": 0.75, "仮組立": 3.1, "溶接": 3.3, "本組立": 9.55}, {"会社名": "大和冷機工業", "受注番号": "1019678 - 0", "型式": "ﾌｨﾝｸｰﾗｰMF3列x3段x1200L-20", "ヘッダ製作": null, "フィン抜き": null, "拡管": 3.25, "仮組立": null, "溶接": 5.0, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019679 - 0", "型式": "床置MF8列x3段x550L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.5, "溶接": 8.5, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019680 - 0", "型式": "床置MF4列x2段x900L-5", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 2.5, "本組立": null}, {"会社名": "大和冷機工業", "受注番号": "1019680 - 1", "型式": "床置MF5列x2段x900L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 5.0, "本組立": null}, {"会社名": "大分冷機", "受注番号": "1019616 - 0", "型式": "チラー熱交換器Φ22.22 裸管コイル", "ヘッダ製作": 1.5, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 130.75}, {"会社名": "日本厨房", "受注番号": "1019681 - 0", "型式": "天吊MF5列x2段x1940L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 2.5, "溶接": 5.0, "本組立": null}, {"会社名": "西部技研", "受注番号": "1019652 - 0", "型式": "直膨ｺｲﾙ(PC) MF12104002.5", "ヘッダ製作": 4.5, "フィン抜き": null, "拡管": 1.25, "仮組立": 2.5, "溶接": 8.5, "本組立": 0.5}, {"会社名": "吉井商会", "受注番号": "1019653 - 0", "型式": "VCD-116HFA用ﾄﾞﾚﾝﾊﾟﾝ", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 5.0}, {"会社名": "マツオ冷凍工業", "受注番号": "1019643 - 0", "型式": "HMBC-107H-A4.0-F04C-A-KH20", "ヘッダ製作": 1.5, "フィン抜き": 6.5, "拡管": 2.0, "仮組立": 3.55, "溶接": 15.1, "本組立": 152.7}, {"会社名": "マツオ冷凍工業", "受注番号": "1019635 - 0", "型式": "ｺｽﾓﾌｧﾝ CF-300", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 5.5}, {"会社名": "大和冷機工業", "受注番号": "1019687 - 0", "型式": "天吊MF6列x2段x1500L-10", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 2.0, "溶接": 3.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019693 - 0", "型式": "床置MF6列x2段x1210L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 2.0, "溶接": 3.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019693 - 1", "型式": "床置MF4列x2段x1210L-8", "ヘッダ製作": null, "フィン抜き": null, "拡管": 1.0, "仮組立": 1.5, "溶接": 3.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019693 - 2", "型式": "床置MF7列x2段x925L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019693 - 3", "型式": "床置MF7列x2段x1200L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.5, "仮組立": 0.5, "溶接": 1.5, "本組立": null}, {"会社名": "杉本商店", "受注番号": "1019656 - 0", "型式": "蒸気ｺｲﾙ M213146003", "ヘッダ製作": 51.5, "フィン抜き": null, "拡管": null, "仮組立": 5.35, "溶接": 11.25, "本組立": 5.25}, {"会社名": "アメフレック", "受注番号": "1019668 - 0", "型式": "ｺｲﾙﾕﾆｯﾄ-MF12125203.5", "ヘッダ製作": 2.0, "フィン抜き": null, "拡管": 0.75, "仮組立": 7.5, "溶接": 15.0, "本組立": 45.5}, {"会社名": "信栄冷機工業", "受注番号": "1019660 - 0", "型式": "HMBC-23A-A6.0-F02C-A-KH2.0", "ヘッダ製作": 3.5, "フィン抜き": 7.0, "拡管": 1.0, "仮組立": 5.0, "溶接": 9.5, "本組立": 39.5}, {"会社名": "日本厨房", "受注番号": "1019697 - 0", "型式": "天吊MF6列x2段x1560L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 0.5, "溶接": 2.0, "本組立": null}, {"会社名": "日本厨房", "受注番号": "1019698 - 0", "型式": "床置φ5/8-MF8列x3(2+1)段x850L-12", "ヘッダ製作": null, "フィン抜き": null, "拡管": 0.75, "仮組立": 1.5, "溶接": 4.0, "本組立": null}, {"会社名": "ホシザキ北九", "受注番号": "1019642 - 0", "型式": "ｺｽﾓﾌｧﾝ CF-300　凍結防止仕様", "ヘッダ製作": null, "フィン抜き": null, "拡管": null, "仮組立": null, "溶接": null, "本組立": 181.2}]; // 工程時間2026データ（140件）
+let manualData=[]; // 手打ちデータ（0件）
+// localStorage から読み込み
+try{ const saved=localStorage.getItem('seizo_manual_data'); if(saved) manualData=JSON.parse(saved); }catch(e){}
+function saveManualData(){ try{localStorage.setItem('seizo_manual_data',JSON.stringify(manualData));}catch(e){} }
+let waitingList=[];
+let tantos=['藤井','安仲','坂田'];
+let calBlocks={};
+tantos.forEach(t=>calBlocks[t]=[]);
+let currentMonday=getMonday(new Date());
+let lastResult=null;
+// 残業設定リスト [{from:'2026-03-25', to:'2026-03-27', hours:1}]
+let zangyouList=[];
+// 個別に出勤指定した休日日付セット（'YYYY-MM-DD'）
+let workDays=new Set();
+
+// ===== ページ切替 =====
+function showPage(p,el){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('show'));
+  document.querySelectorAll('.ptab').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('show');
+  if(el) el.classList.add('active');
+  if(p==='cal'){renderCalendar();renderCards();}
+}
+
+// ===== 入力操作 =====
+function adj(k,d){
+  if(k==='coil'){coil=Math.max(1,coil+d);document.getElementById('coil-v').textContent=coil;}
+  if(k==='units'){units=Math.max(1,units+d);document.getElementById('units-v').textContent=units;}
+}
+
+function getFinMat(){
+  const s=document.getElementById('fin').value;
+  if(s!=='auto') return s;
+  const m=document.getElementById('model').value.trim();
+  if(m.length>=11){const c=m[10].toUpperCase();if('ACS'.includes(c))return c;}
+  return 'A';
+}
+
+// ===== 型式マッチング =====
+// 戻り値: { rows, matchType }
+// 型式正規化：全角→半角、大文字統一、スペース除去
+function normalizeModel(s){
+  if(!s) return '';
+  return s
+    .trim()
+    // 全角英数字→半角
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    // 全角スペース→半角
+    .replace(/　/g,' ')
+    // 全角ハイフン・マイナス系→半角
+    .replace(/[－ー―]/g,'-')
+    // 全角ドット→半角
+    .replace(/．/g,'.')
+    // 大文字統一
+    .toUpperCase();
+}
+
+// matchType: 'exact'=完全一致, 'fuzzy'=近似一致, 'none'=なし
+function findMatched(inp){
+  const allData = [...importedData, ...manualData];
+  if(!allData.length||!inp.trim()) return {rows:[],matchType:'none'};
+  const m=normalizeModel(inp);
+
+  // ① 完全一致（正規化後に一致）
+  const exactAll=allData.filter(row=>normalizeModel(row['型式']||'')===m);
+  if(exactAll.length>0){
+    const seenE=new Set();
+    const exact=exactAll.filter(row=>{
+      const key=(row['受注番号']||'').toString().trim();
+      if(key&&seenE.has(key)) return false;
+      if(key) seenE.add(key);
+      return true;
+    });
+    return {rows:exact, matchType:'exact'};
+  }
+
+  // ② 部分一致（入力がデータの型式に含まれる、またはデータが入力に含まれる）
+  const partial=allData.filter(row=>{
+    const t=normalizeModel(row['型式']||'');
+    if(!t) return false;
+    return t.includes(m) || m.includes(t);
+  });
+  if(partial.length>0){
+    const CN=[5,6];
+    function gn2(s,i){let n='';for(let j=i;j<s.length&&/\d/.test(s[j]);j++)n+=s[j];return n?parseFloat(n):null;}
+    // 受注番号で重複除去してからトップ5
+    const seen=new Set();
+    const deduped=partial.filter(row=>{
+      const key=(row['受注番号']||'').toString().trim();
+      if(key&&seen.has(key)) return false;
+      if(key) seen.add(key);
+      return true;
+    });
+    const top=deduped.map(row=>{
+      const t=normalizeModel(row['型式']||'');
+      let sc=0;for(const i of CN){const a=gn2(m,i),b=gn2(t,i);if(a!==null&&b!==null)sc+=Math.abs(a-b);}
+      return{row,sc};
+    }).sort((a,b)=>a.sc-b.sc).slice(0,5).map(s=>s.row);
+    return {rows:top, matchType:'partial'};
+  }
+
+  // ③ 近似マッチ（英字位置一致）
+  const CA=[0,1,2,10,13,14], CN=[5,6];
+  function gc(s,i){return i<s.length?s[i]:'';}
+  function gn(s,i){let n='';for(let j=i;j<s.length&&/\d/.test(s[j]);j++)n+=s[j];return n?parseFloat(n):null;}
+  const cands=allData.filter(row=>{
+    const t=normalizeModel(row['型式']||'');if(!t)return false;
+    for(const i of CA){if(gc(m,i)&&gc(t,i)&&gc(m,i)!==gc(t,i))return false;}
+    return true;
+  });
+  if(!cands.length) return {rows:[],matchType:'none'};
+  // 受注番号で重複除去
+  const seen2=new Set();
+  const dedupedCands=cands.filter(row=>{
+    const key=(row['受注番号']||'').toString().trim();
+    if(key&&seen2.has(key)) return false;
+    if(key) seen2.add(key);
+    return true;
+  });
+  const top=dedupedCands.map(row=>{
+    const t=normalizeModel(row['型式']||'');
+    let sc=0;for(const i of CN){const a=gn(m,i),b=gn(t,i);if(a!==null&&b!==null)sc+=Math.abs(a-b);}
+    return{row,sc};
+  }).sort((a,b)=>a.sc-b.sc).slice(0,5).map(s=>s.row);
+  return {rows:top, matchType:'fuzzy'};
+}
+
+function calcAvg(rows,proc){
+  const vals=rows.map(r=>parseFloat(r[proc])).filter(v=>!isNaN(v)&&v>0);
+  return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+}
+
+// ラベル生成（完全一致か近似かで変える）
+function matchLabel(matchType, rows){
+  if(matchType==='exact'){
+    return rows.length===1
+      ? `完全一致: 1件 → その時間を使用`
+      : `完全一致: ${rows.length}件 → 平均を使用`;
+  }
+  if(matchType==='partial'){
+    return `部分一致: ${rows.length}件（${rows.slice(0,3).map(r=>r['型式']).join('、')}${rows.length>3?'…':''}）`;
+  }
+  if(matchType==='fuzzy'){
+    return `近似マッチ: ${rows.length}件（${rows.slice(0,3).map(r=>r['型式']).join('、')}${rows.length>3?'…':''}）`;
+  }
+  return 'マッチなし → 計算式のみで算出';
+}
+
+// ソースラベル（完全一致かどうか区別）
+function dataSrcLabel(matchType){
+  return matchType==='exact' ? '完全一致' : '実績平均';
+}
+function dataSrcClass(matchType){
+  return matchType==='exact' ? 's-e' : 's-d';
+}
+
+function onModelInput(){
+  const m=document.getElementById('model').value.trim();
+  const info=document.getElementById('match-info');
+  if(!m||!importedData.length){info.style.display='none';return;}
+  const {rows,matchType}=findMatched(m);
+  info.style.display='block';
+  info.textContent='参照データ: '+matchLabel(matchType,rows);
+  info.style.borderLeftColor=matchType==='exact'?'#22c55e':matchType==='fuzzy'?'#2563eb':'#94a3b8';
+}
+
+// ===== 計算式 =====
+function calcFin(el,fp){
+  if(!el||!fp) return null;
+  return (((el/fp)/50)*10+60)/60;
+}
+function calcKoukan(el,fp,c,u,mat){
+  let h=1.0*c+1.0;
+  if(mat==='A'&&(fp===15||fp===20)) h+=1.5;
+  if(mat==='C'&&fp>=4) h+=1.5;
+  if(el>2000) h+=Math.floor((el-2000)/100)*(3/60);
+  return h*u;
+}
+function calcKariumi(r,d,c,u){return (r*d*c*u*1+15)/60;}
+function calcYousetsu(r,d,c,u){return (r*d*c*u*4+15)/60;}
+
+// ===== 稼働日計算 =====
+const HOLS=['2025-01-01','2025-01-13','2025-02-11','2025-02-23','2025-02-24',
+  '2025-03-20','2025-04-29','2025-05-03','2025-05-04','2025-05-05','2025-05-06',
+  '2025-07-21','2025-08-11','2025-09-15','2025-09-22','2025-09-23','2025-10-13',
+  '2025-11-03','2025-11-23','2025-11-24','2026-01-01','2026-01-12','2026-02-11',
+  '2026-02-23','2026-03-20','2026-04-29','2026-05-03','2026-05-04','2026-05-05',
+  '2026-05-06','2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23',
+  '2026-10-12','2026-11-03','2026-11-23'];
+function localDateStr(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function parseLocalDate(s){
+  // YYYY-MM-DD をタイムゾーンずれなしでパース
+  const p=s.split('-');
+  const d=new Date(+p[0],+p[1]-1,+p[2]);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function isNationalHol(d){return HOLS.includes(localDateStr(d));}
+function isWeekend(d){const dw=d.getDay();return dw===0||dw===6;}
+function getZanForDate(d){
+  // 残業時間（hours>0）のみ対象
+  const s=localDateStr(d);
+  let best=null;
+  zangyouList.forEach(z=>{
+    if(z.hours>0&&s>=z.from&&s<=z.to){
+      if(!best||z.hours>best.hours)best=z;
+    }
+  });
+  return best;
+}
+function isHol(d){
+  const s=localDateStr(d);
+  if(workDays.has(s)) return false; // 出勤指定日は稼働日
+  if(isNationalHol(d)) return true; // 祝日は休み
+  if(isWeekend(d)) return true;     // 土日は休み
+  return false;
+}
+function getDayCapacity(d){
+  const z=getZanForDate(d);
+  return 8+(z?z.hours:0);
+}
+function addWorkdays(sd,hours){
+  if(!sd) return new Date();
+  const d=parseLocalDate(sd);
+  if(hours<=0) return d;
+  let rem=hours;
+  let safety=0;
+  while(rem>0&&safety<500){
+    if(!isHol(d)){
+      const cap=getDayCapacity(d);
+      if(cap>0) rem-=cap;
+    }
+    if(rem>0){d.setDate(d.getDate()+1);safety++;}
+  }
+  while(isHol(d)&&safety<600){d.setDate(d.getDate()+1);safety++;}
+  return d;
+}
+function fmtDate(d){return d.getFullYear()+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getDate().toString().padStart(2,'0');}
+function fmtMD(d){return(d.getMonth()+1)+'/'+d.getDate();}
+
+// ===== 計算実行 =====
+function calculate(){
+  const retsu=parseFloat(document.getElementById('retsu').value)||6;
+  const dan=parseFloat(document.getElementById('dan').value)||2;
+  const el=parseFloat(document.getElementById('el').value)||0;
+  const fp=parseFloat(document.getElementById('fp').value)||0;
+  const mat=getFinMat();
+  const company=document.getElementById('company').value.trim();
+  const modelName=document.getElementById('model').value.trim();
+  const mHon=parseFloat(document.getElementById('m-hon').value);
+  const mHead=parseFloat(document.getElementById('m-head').value);
+  const startStr=document.getElementById('start-date').value;
+  const shipStr=document.getElementById('ship-date').value;
+  const {rows:matched, matchType}=findMatched(modelName);
+  const res={};
+
+  if(!isNaN(mHead)) res['ヘッダ製作']={val:mHead,src:'manual'};
+  else{const a=calcAvg(matched,'ヘッダ製作');res['ヘッダ製作']={val:a,src:a?matchType:'none'};}
+
+  const fh=calcFin(el,fp);
+  if(fh!==null) res['フィン抜き']={val:fh*units,src:'formula'};
+  else{const a=calcAvg(matched,'フィン抜き');res['フィン抜き']={val:a,src:a?matchType:'none'};}
+
+  res['拡管']={val:calcKoukan(el,fp,coil,units,mat),src:'formula'};
+  res['仮組立']={val:calcKariumi(retsu,dan,coil,units),src:'formula'};
+  res['溶接']={val:calcYousetsu(retsu,dan,coil,units),src:'formula'};
+
+  if(!isNaN(mHon)) res['本組立']={val:mHon,src:'manual'};
+  else{const a=calcAvg(matched,'本組立');res['本組立']={val:a,src:a?matchType:'none'};}
+
+  const orderNum=document.getElementById('order-num').value.trim();
+  lastResult={company,modelName,orderNum,shipStr,startStr,res,matchedCount:matched.length,matchType,matchedRows:matched};
+
+  const matchNote=matched.length
+    ?(matchType==='exact'
+      ?(matched.length===1?' （完全一致 1件）':` （完全一致 ${matched.length}件 → 平均）`)
+      :` （近似 ${matched.length}件参照）`)
+    :'';
+  document.getElementById('res-title').textContent=
+    (company||'会社名')+'　/　'+(modelName||'型式')+' の計算結果'+matchNote;
+
+  let grid='';let total=0;
+  PROCS.forEach(proc=>{
+    const r=res[proc];const val=r&&r.val!==null?r.val:null;
+    if(val!==null)total+=val;
+    const srcMap={
+      'formula':['s-f','計算式'],
+      'exact':  ['s-e','完全一致'],
+      'partial':['s-d','部分一致'],
+      'fuzzy':  ['s-d','実績平均'],
+      'manual': ['s-m','手動入力'],
+      'none':   ['s-n','なし']
+    };
+    const [sl,st]=srcMap[r?r.src:'none']||['s-n','なし'];
+    const procKey=proc.replace(/\s/g,'_');
+    grid+=`<div class="metric">
+      <div class="mlabel"><div class="mdot" style="background:${PCOL[proc]}"></div>${proc}</div>
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+        <input type="number" id="res-h-${procKey}" value="${val!==null?val.toFixed(2):''}" placeholder="—"
+          min="0" step="0.25" onchange="updateResHours('${proc}',this.value)"
+          style="width:70px;height:28px;border:1px solid #e2e8f0;border-radius:5px;padding:0 6px;font-size:14px;font-weight:500;color:#1e293b;background:#fff">
+        <span style="font-size:11px;color:#94a3b8">h</span>
+      </div>
+      <span class="msrc ${sl}">${st}</span>
+    </div>`;
+  });
+  grid+=`<div class="metric" style="background:#eff6ff;border-color:#bfdbfe">
+    <div class="mlabel" style="color:#1d4ed8">合計工数</div>
+    <div class="mval" style="color:#1d4ed8"><span id="res-total">${total.toFixed(2)}</span><span class="munit"> h</span></div>
+    <span class="msrc s-f">自動集計</span>
+  </div>`;
+  document.getElementById('res-grid').innerHTML=grid;
+
+  // 参照データ一覧 + 全工程の実績平均
+  let ref='';
+  if(matched.length){
+    // 全工程の実績平均を計算
+    const avgRow = {};
+    PROCS.forEach(p=>{
+      const vals=matched.map(r=>parseFloat(r[p])).filter(v=>!isNaN(v)&&v>0);
+      avgRow[p]=vals.length ? parseFloat((vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(2)) : null;
+    });
+
+    ref=`<div class="section-label">実績平均（${matchType==='exact'?'完全一致':'近似マッチ'}　${matched.length}件）</div>
+    <div style="overflow-x:auto;margin-bottom:12px">
+    <table class="sim-table"><thead><tr>
+      ${PROCS.map(p=>`<th style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:3px"><div style="width:7px;height:7px;border-radius:2px;background:${PCOL[p]||'#64748b'}"></div>${p}</div></th>`).join('')}
+    </tr></thead><tbody><tr>
+      ${PROCS.map(p=>`<td style="text-align:center;font-weight:600;font-size:13px;color:${avgRow[p]?'#1e293b':'#cbd5e1'}">${avgRow[p]?avgRow[p]+'h':'—'}</td>`).join('')}
+    </tr></tbody></table></div>
+
+    <div class="section-label">参照データ一覧（${matched.length}件）</div>
+    <div style="overflow-x:auto">
+    <table class="sim-table"><thead><tr>
+      <th>会社名</th><th>型式</th><th>受注番号</th>
+      ${PROCS.map(p=>`<th style="text-align:right">${p}</th>`).join('')}
+    </tr></thead><tbody>`;
+    matched.forEach(row=>{
+      ref+=`<tr>
+        <td>${row['会社名']||'—'}</td>
+        <td style="font-size:11px">${row['型式']||'—'}</td>
+        <td style="font-size:11px;color:#64748b">${row['受注番号']||'—'}</td>
+        ${PROCS.map(p=>{const v=parseFloat(row[p]);return`<td style="text-align:right;font-size:12px">${!isNaN(v)&&v>0?v.toFixed(2):'—'}</td>`;}).join('')}
+      </tr>`;
+    });
+    ref+='</tbody></table></div>';
+  } else {
+    ref='<div style="font-size:12px;color:#94a3b8;padding:8px 0">参照データなし（計算式のみで算出）</div>';
+  }
+  document.getElementById('res-sim').innerHTML=ref;
+  document.getElementById('result-card').classList.add('show');
+}
+
+function updateResHours(proc, val){
+  if(!lastResult) return;
+  const h = parseFloat(val);
+  if(isNaN(h) || h < 0) return;
+  lastResult.res[proc] = {val: h, src: 'manual'};
+  // 合計を再計算して表示
+  let total = 0;
+  PROCS.forEach(p => { total += lastResult.res[p] && lastResult.res[p].val ? lastResult.res[p].val : 0; });
+  const el = document.getElementById('res-total');
+  if(el) el.textContent = total.toFixed(2);
+}
+
+function addToWaiting(){
+  if(!lastResult) return;
+  const company = document.getElementById('company').value.trim();
+  const modelName = document.getElementById('model').value.trim();
+  if(!company){ alert('会社名を入力してください'); document.getElementById('company').focus(); return; }
+  if(!modelName){ alert('型式名を入力してください'); document.getElementById('model').focus(); return; }
+  // lastResultも更新
+  lastResult.company = company;
+  lastResult.modelName = modelName;
+  const total=PROCS.reduce((s,p)=>s+(lastResult.res[p].val||0),0);
+  const today=new Date();
+  const ship=lastResult.shipStr?parseLocalDate(lastResult.shipStr):null;
+  const days=ship?Math.round((ship-today)/86400000):null;
+  const procs=PROCS.map(p=>{
+    const r=lastResult.res[p];
+    const val=r&&r.val!==null?parseFloat(r.val.toFixed(2)):0;
+    // ヘッダ製作・本組立はデータなしでも0hで表示、他は0なら除外
+    const show=(p==='ヘッダ製作'||p==='本組立')||(val>0);
+    return show?{n:p,h:val,done:false}:null;
+  }).filter(Boolean);
+  waitingList.push({company:lastResult.company||'未設定',model:lastResult.modelName||'未設定',orderNum:lastResult.orderNum||'',ship:lastResult.shipStr||'未定',start:lastResult.startStr||'',days,procs,total:parseFloat(total.toFixed(2)),done:false,memo:''});
+  syncAllToCloud();
+  // ボタンをグレーアウトして完了メッセージを表示
+  const btn=document.getElementById('add-waiting-btn');
+  btn.textContent='✓ 追加済み';
+  btn.disabled=true;
+  btn.style.background='#94a3b8';btn.style.borderColor='#94a3b8';btn.style.cursor='default';
+  const msg=document.getElementById('add-waiting-msg');
+  msg.style.display='block';
+  // 3秒後にボタンを元に戻す
+  setTimeout(()=>{
+    btn.textContent='＋ 待機リストに追加';
+    btn.disabled=false;
+    btn.style.background='';btn.style.borderColor='';btn.style.cursor='';
+  }, 3000);
+}
+
+function resetForm(){
+  document.getElementById('retsu').value=6;document.getElementById('dan').value=2;
+  document.getElementById('el').value=1350;document.getElementById('fp').value=10;
+  document.getElementById('company').value='';document.getElementById('model').value='';document.getElementById('order-num').value='';
+  document.getElementById('m-hon').value='';document.getElementById('m-head').value='';
+  coil=1;units=1;
+  document.getElementById('coil-v').textContent=1;document.getElementById('units-v').textContent=1;
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('match-info').style.display='none';
+  lastResult=null;
+}
+
+// ===== カレンダー =====
+function getMonday(d){const dw=d.getDay();const diff=dw===0?-6:1-dw;const m=new Date(d);m.setDate(d.getDate()+diff);m.setHours(0,0,0,0);return m;}
+function getWeekDates(mon){return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});}
+function isToday(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
+function getWeekNum(d){const s=new Date(d.getFullYear(),0,1);return Math.ceil(((d-s)/86400000+s.getDay()+1)/7);}
+
+function renderCalendar(){
+  const dates=getWeekDates(currentMonday);
+  const wn=getWeekNum(currentMonday);
+  document.getElementById('week-title').textContent=
+    currentMonday.getFullYear()+'年 第'+wn+'週（'+fmtMD(currentMonday)+'〜'+fmtMD(dates[6])+'）';
+
+  let html='<thead><tr><th style="width:70px;font-size:12px;padding:8px 4px">担当者</th>';
+  dates.forEach((d,i)=>{
+    const hol=isHol(d);
+    const tod=isToday(d);
+    const natHol=isNationalHol(d);
+    const s=localDateStr(d);
+    const isWork=workDays.has(s); // 出勤指定日
+    let cls, style='';
+    if(tod) cls='tday';
+    else if(natHol&&!isWork){ cls='hday'; style='background:#fef08a;color:#854d0e'; }
+    else if(isWork&&natHol){ cls='wday'; style='background:#bbf7d0;color:#14532d'; }
+    else if(isWork){ cls='wday'; style='background:#bbf7d0;color:#14532d'; }
+    else if(hol) cls='hday';
+    else cls='wday';
+    const label=natHol&&!isWork?'祝':isWork?'出':'';
+    html+=`<th class="${cls}" style="${style}"><div class="dhdr">${DAYS_JP[i]}</div><div class="ddate">${fmtMD(d)}</div>${(hol||label)?`<div style="font-size:9px;margin-top:1px">${label||(hol?'休':'')}</div>`:''}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  tantos.forEach(name=>{
+    html+=`<tr><td style="background:#f8fafc;vertical-align:middle">
+      <div class="tname">${name}</div>
+    </td>`;
+    dates.forEach((d,di)=>{
+      const s=localDateStr(d);
+      const natHol=isNationalHol(d);
+      const isWork=workDays.has(s);
+      const hol=isHol(d);
+      // startDateが一致するブロックのみ表示（manual等でstartDateがない場合はday一致で表示）
+      const dblks=(calBlocks[name]||[]).filter(b=>{
+        if(b.startDate) return b.startDate===s;
+        return b.day===di;
+      });
+      const tot=dblks.reduce((s,b)=>s+b.hours,0);
+      const fc=dblks.length?(dblks[0].manual?'#ec4899':PCOL[dblks[0].proc]||'#64748b'):'#cbd5e1';
+      const cellBg=natHol&&!isWork?'background:#fefce8;':isWork?'background:#f0fdf4;':hol?'background:#f8fafc;':'';
+      html+=`<td style="min-width:60px;${cellBg};vertical-align:top;padding:4px;border:0.5px solid #f1f5f9">`;
+      if(!hol){
+        const dateStr=localDateStr(d);
+        const zanDay=getZanForDate(d);
+        const zanHours=zanDay?zanDay.hours:0;
+        const dayCapacity=8+zanHours;
+        const pct=Math.min(100,(tot/dayCapacity)*100);
+        const overPct=zanHours>0?Math.min(100,(zanHours/dayCapacity)*100):0;
+        html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+          <span style="font-size:9px;color:#94a3b8">${tot>0?tot.toFixed(1)+'h':''}</span>
+          ${zanHours>0?`<span style="font-size:9px;color:#f9a8d4;font-weight:600">+${zanHours}h</span>`:''}
+        </div>`;
+        // 工程ごとにセグメント表示
+        const segs = dblks.map(b=>{
+          const bpct = Math.min(100,(b.hours/dayCapacity)*100).toFixed(1);
+          const bcol = b.manual?'#ec4899':(PCOL[b.proc]||'#64748b');
+          return `<div style="height:100%;width:${bpct}%;background:${bcol};flex-shrink:0"></div>`;
+        }).join('');
+        const remPct = Math.max(0,100-pct).toFixed(1);
+        html+=`<div class="tbar" style="display:flex;overflow:hidden">
+          ${segs}
+          ${remPct>0?`<div style="height:100%;flex:1;background:#e2e8f0"></div>`:''}
+        </div>`;
+        dblks.forEach((b,bi)=>{
+          const isManual=b.manual;
+          const col=isManual?'#ec4899':(PCOL[b.proc]||'#64748b');
+          const tc=(b.proc==='仮組立'&&!isManual)?'#1a1a00':'#fff';
+          // calBlocks[name]の中での実インデックスを取得
+          let globalIdx=-1;
+          const arr=calBlocks[name]||[];
+          for(let i=0;i<arr.length;i++){if(arr[i]===b){globalIdx=i;break;}}
+          const doneStyle=b.done?'opacity:.4;filter:grayscale(.8);':'';
+          const safeName=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          html+=`<div class="blk" style="background:${col};padding-right:24px;${doneStyle};position:relative" onclick="toggleProcFromCal('${safeName}','${b.proc}','${(b.company||'').replace(/'/g,"\\'")}','${(b.model||'').replace(/'/g,"\\'")}')">
+            <div class="blk-title" style="color:${tc}">${b.proc} ${b.hours}h${b.done?' ✓':''}</div>
+            <div class="blk-sub" style="color:${tc}">${b.company||''}</div>
+            <div class="blk-sub" style="color:${tc}">${b.model||''}</div>
+            <button onclick="event.stopPropagation();deleteCalBlock('${safeName}',${globalIdx})"
+              style="position:absolute;top:3px;right:3px;width:16px;height:16px;border:none;border-radius:3px;background:rgba(0,0,0,.25);color:${tc};cursor:pointer;font-size:11px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;font-family:sans-serif">×</button>
+          </div>`;
+        });
+        // 直接追加ボタン
+        html+=`<div onclick="openDirectAdd('${name}',${di})" style="display:flex;align-items:center;justify-content:center;height:20px;border:1px dashed #e2e8f0;border-radius:4px;cursor:pointer;font-size:13px;color:#cbd5e1;margin-top:2px;transition:all .15s" onmouseover="this.style.borderColor='#ec4899';this.style.color='#ec4899'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#cbd5e1'">＋</div>`;
+      } else {
+        const label=natHol?'祝':'休';
+        const labelColor=natHol?'#854d0e':'#cbd5e1';
+        html+=`<div style="font-size:10px;color:${labelColor};text-align:center;padding:10px 0;font-weight:${natHol?'600':'400'}">${label}</div>`;
+      }
+      html+='</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  document.getElementById('cal-table').innerHTML=html;
+}
+
+function renderCards(){
+  const area=document.getElementById('cards-area');
+  document.getElementById('waiting-count').textContent=waitingList.length+'件';
+  if(!waitingList.length){
+    area.innerHTML='<div style="color:#94a3b8;font-size:12px;padding:20px;background:#fff;border-radius:10px;text-align:center">工数計算タブで計算後、「待機リストに追加」ボタンで追加できます</div>';
+    return;
+  }
+  // 出荷日順にソート（未定は最後）
+  const sorted=[...waitingList].map((c,idx)=>({c,idx})).sort((a,b)=>{
+    const sa=a.c.ship&&a.c.ship!=='未定'?a.c.ship:'9999-99-99';
+    const sb=b.c.ship&&b.c.ship!=='未定'?b.c.ship:'9999-99-99';
+    return sa.localeCompare(sb);
+  });
+  area.innerHTML=sorted.map(({c,idx})=>{
+    const today=new Date();
+    const ship=c.ship&&c.ship!=='未定'?parseLocalDate(c.ship):null;
+    const today2=new Date();today2.setHours(0,0,0,0);
+    const days=ship?Math.round((ship-today2)/86400000):null;
+    const daysText=days===null?'未定':days<0?`${Math.abs(days)}日超過`:days===0?'本日':`残${days}日`;
+    const allDone=c.procs.length>0&&c.procs.every(p=>p.done);
+    c.done=allDone;
+    const bc=allDone?'#86efac':days===null?'#fde68a':days<0?'#fca5a5':days<7?'#fed7aa':'#fde68a';
+    const donePct=c.procs.length?c.procs.filter(p=>p.done).length/c.procs.length*100:0;
+    const prHtml=c.procs.map((p,pi)=>{
+      const col=PCOL[p.n]||'#64748b';
+      const doneStyle=p.done?'opacity:.45;text-decoration:line-through;':'';
+      // calStateから残り時間を計算
+      let remH=null;
+      if(c.calState){
+        const ps=c.calState.find(s=>s.proc===p.n);
+        if(ps){
+          const usedH=parseFloat(((ps.subBlocks||[]).reduce((s,b)=>s+b.hours,0)).toFixed(2));
+          remH=parseFloat((ps.hours-usedH).toFixed(2));
+        }
+      }
+      const hasRem=remH!==null&&remH>0;
+      return `<div class="prow" onclick="toggleProcDone(${idx},${pi})" style="cursor:pointer;border-radius:5px;padding:2px 4px;transition:background .1s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+        <div class="pname" style="${doneStyle}">
+          <div style="width:16px;height:16px;border:1.5px solid ${p.done?'#22c55e':col};border-radius:4px;display:flex;align-items:center;justify-content:center;background:${p.done?'#22c55e':'#fff'};flex-shrink:0">
+            ${p.done?'<svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1,5 3.5,7.5 8,2" stroke="#fff" stroke-width="1.5" fill="none"/></svg>':''}
+          </div>
+          <div class="pdot" style="background:${col}"></div>${p.n} ${p.h}h
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          ${hasRem?`<span style="font-size:11px;font-weight:700;color:#f97316;background:#fff7ed;border-radius:4px;padding:1px 6px">残${remH}h</span>`:''}
+          ${p.done?'<div class="done-tag">完</div>':''}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="wcard" style="border-color:${bc};position:relative">
+      <div class="del-btn" onclick="removeCard(${idx},event)" title="削除">×</div>
+      ${c.orderNum?`<div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px">${c.orderNum}</div>`:''}
+      ${allDone?'<div style="position:absolute;top:8px;right:28px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1">完</div>':''}
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;padding-right:${allDone?'50px':'28px'}">
+        <div class="wc-company">${c.company}</div>
+      </div>
+      <div class="wc-model">${c.model}</div>
+      <div class="wc-ship">
+        <div class="wc-dot"></div>
+        <div class="wc-shiptext">出荷 ${c.ship}</div>
+        <div class="wc-days">${daysText}</div>
+      </div>
+      ${c.start?`<div style="font-size:11px;color:#64748b;margin-bottom:4px;padding-left:2px">📦 入荷 ${c.start}</div>`:''}
+      <textarea placeholder="メモ..." rows="1"
+        style="width:100%;font-size:11px;border:1px solid #e2e8f0;border-radius:5px;padding:4px 6px;color:#475569;resize:none;margin-bottom:4px;box-sizing:border-box;background:#fafafa"
+        oninput="updateCardMemo(${idx},this.value)" onclick="event.stopPropagation()">${c.memo||''}</textarea>
+      ${prHtml}
+      <div class="pbar-wrap"><div class="pbar-fill" style="width:${donePct}%;background:linear-gradient(90deg,#ef4444,#f97316,#22c55e,#3b82f6,#8b5cf6)"></div></div>
+      <div class="wc-total">合計 ${c.total}h</div>
+      <button class="btn btn-primary" style="width:100%;margin-top:6px;font-size:11px;height:28px" onclick="wcardClick(${idx},event)">カレンダーに追加</button>
+    </div>`;
+  }).join('');
+}
+
+function removeCard(idx,e){
+  e.stopPropagation();
+  waitingList.splice(idx,1);
+  renderCards();
+  syncAllToCloud();
+}
+function updateCardMemo(idx, val){
+  waitingList[idx].memo = val;
+  syncAllToCloud();
+}
+
+function toggleProcFromCal(tanto, procName, company, model){
+  // 待機リストから該当工程を探してdone切り替え
+  let found = false;
+  waitingList.forEach(card=>{
+    if(card.company===company && card.model===model){
+      const p = card.procs.find(p=>p.n===procName);
+      if(p){
+        p.done = !p.done;
+        // calBlocksにも反映
+        tantos.forEach(t=>{
+          (calBlocks[t]||[]).forEach(b=>{
+            if(b.company===company && b.model===model && b.proc===procName){
+              b.done = p.done;
+            }
+          });
+        });
+        found = true;
+      }
+    }
+  });
+  if(found){
+    renderCards();
+    renderCalendar();
+    syncAllToCloud();
+  }
+}
+
+function toggleProcDone(cardIdx, procIdx){
+  const p = waitingList[cardIdx].procs[procIdx];
+  p.done = !p.done;
+  // カレンダーの同じ工程ブロックにも done を反映
+  const c = waitingList[cardIdx];
+  const procName = p.n;
+  tantos.forEach(t=>{
+    (calBlocks[t]||[]).forEach(b=>{
+      if(b.company===c.company && b.model===c.model && b.proc===procName){
+        b.done = p.done;
+      }
+    });
+  });
+  renderCards();
+  renderCalendar();
+  syncAllToCloud();
+}// カレンダー追加モーダル
+let calAddTarget = null; // {cardIdx, procStates:[{proc,hours,done,startDate,tantos:[]}]}
+
+function wcardClick(idx, e){
+  if(e) e.stopPropagation();
+  const c = waitingList[idx];
+  // 各工程の状態初期化（まだなければ）
+  if(!c.calState){
+    c.calState = c.procs.map(p => ({
+      proc: p.n, hours: p.h, added: false,
+      startDate: '', assignedTantos: []
+    }));
+  }
+  calAddTarget = idx;
+  renderCalAddModal();
+  const m = document.getElementById('cal-add-modal');
+  m.style.display = 'flex';
+}
+
+function closeCalAddModal(){
+  document.getElementById('cal-add-modal').style.display = 'none';
+  renderCalendar();
+  renderCards();
+}
+
+function renderCalAddModal(){
+  const idx = calAddTarget;
+  if(idx === null) return;
+  const c = waitingList[idx];
+  const body = document.getElementById('cal-add-body');
+  // 拡管の開始日を記録（仮組立の最小開始日に使う）
+  let koukanStartDate = null;
+
+  body.innerHTML = c.calState.map((ps, pi) => {
+    const col = PCOL[ps.proc] || '#64748b';
+    const textCol = ps.proc === '仮組立' ? '#1a1a00' : '#fff';
+
+    // 最小開始日：仮組立のみ拡管の翌日
+    let minDate = '';
+    if(ps.proc === '仮組立' && koukanStartDate){
+      minDate = nextWorkday(parseLocalDate(koukanStartDate));
+    }
+    if(ps.proc === '拡管' && ps.startDate) koukanStartDate = ps.startDate;
+
+    // 追加済み分の残り時間計算（全追加をsubBlocksで管理）
+    const subBlocks = ps.subBlocks || [];
+    const usedH = parseFloat(subBlocks.reduce((s,b)=>s+b.hours,0).toFixed(2));
+    const totalH = ps.hours;
+    const remH = parseFloat((totalH - usedH).toFixed(2));
+
+    const subHtml = subBlocks.map((sb, si) => {
+      const endD = sb.startDate ? fmtDate(addWorkdays(sb.startDate, sb.hours)) : '';
+      return `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border-radius:6px;padding:6px 10px;margin-bottom:4px;flex-wrap:wrap">
+        <span style="color:#22c55e;font-size:12px">✓</span>
+        <span style="font-size:12px;color:#166534;font-weight:500">${sb.startDate}〜${endD}（${sb.hours}h）${sb.tantos&&sb.tantos.length?' '+sb.tantos.join('・'):''}</span>
+        <button onclick="removeSubBlock(${idx},${pi},${si})" style="margin-left:auto;background:#fee2e2;color:#991b1b;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">削除</button>
+      </div>`;
+    }).join('');
+
+    // 編集中フォーム or 追加済み表示
+    const isAdded = ps.added && !ps.editing;
+    const tantoChks = tantos.map(t => {
+      const checked = ps.editTantos && ps.editTantos.includes(t);
+      return `<label style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid ${checked?col:'#e2e8f0'};border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;background:${checked?col:'#fff'};color:${checked?textCol:'#334155'};user-select:none;margin:2px">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleTantoCheck(${idx},${pi},'${t}')" style="display:none">${t}
+      </label>`;
+    }).join('');
+
+    const editDate = ps.editDate || ps.startDate || minDate || '';
+    const numTanto = ps.editTantos ? ps.editTantos.length : 0;
+
+    // 左列：合計時間（編集可）＋残り時間（大きく表示）
+    const leftTd = `<td style="padding:12px 16px;vertical-align:top;min-width:120px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="width:10px;height:10px;border-radius:2px;background:${col};flex-shrink:0"></div>
+        <span style="font-size:13px;font-weight:600;color:#1e293b">${ps.proc}</span>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:3px">合計時間 (h)</div>
+      <input type="number" value="${totalH}" min="0.1" step="0.25"
+        onchange="updateProcTotal(${idx},${pi},this.value)"
+        style="width:70px;height:28px;border:1px solid #e2e8f0;border-radius:5px;padding:0 6px;font-size:13px;font-weight:600;color:#1e293b;background:#fff;margin-bottom:6px">
+      ${remH>0?`<div style="font-size:16px;font-weight:700;color:#f97316;margin-top:2px">残 ${remH}h</div>`
+               :`<div style="font-size:13px;font-weight:700;color:#22c55e;margin-top:2px">✓ 完了</div>`}
+      ${minDate?`<div style="font-size:10px;color:#94a3b8;margin-top:4px">${minDate}以降</div>`:''}
+    </td>`;
+
+    if(isAdded){
+      return `<tr style="border-bottom:1px solid #f1f5f9">${leftTd}
+        <td style="padding:12px 16px;vertical-align:top">
+          ${subHtml}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            <button onclick="editCalProc(${idx},${pi})" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600">編集</button>
+            ${remH>0?`<button onclick="addSubBlock(${idx},${pi})" style="background:#f0f9ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600">＋ さらに追加（残${remH}h）</button>`:''}
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    // 編集フォーム
+    const isSub = ps.addingSubBlock;
+    const dispRemH = isSub ? remH : totalH;
+    const dayH = ps.editHours !== undefined ? ps.editHours : dispRemH;
+    const perPerson = numTanto > 1 ? (dayH / numTanto).toFixed(2) : dayH;
+    const sumText = numTanto > 0 ? `合計 ${dayH}h　→　1人あたり ${perPerson}h` : '';
+    const nextRem = parseFloat((dispRemH - dayH).toFixed(2));
+    return `<tr style="border-bottom:1px solid #f1f5f9;background:#fafafa">${leftTd}
+      <td style="padding:12px 16px;vertical-align:top">
+        ${subHtml}
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <div>
+            <div style="font-size:11px;color:#64748b;margin-bottom:3px;font-weight:500">開始日</div>
+            <input type="date" value="${editDate}" min="${minDate}" onchange="setEditDate(${idx},${pi},this.value)"
+              style="height:32px;border:1px solid #e2e8f0;border-radius:6px;padding:0 8px;font-size:12px;background:#fff;color:#1e293b">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#64748b;margin-bottom:3px;font-weight:500">
+              この日の作業時間 (h)
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input type="number" value="${dayH}" min="0.1" step="0.25" max="${dispRemH}"
+                onchange="setEditHours(${idx},${pi},this.value)"
+                style="height:32px;width:80px;border:1px solid #e2e8f0;border-radius:6px;padding:0 8px;font-size:12px;background:#fff;color:#1e293b">
+              <span style="font-size:11px;color:#94a3b8">/ ${dispRemH}h</span>
+            </div>
+            ${nextRem>0?`<div style="font-size:12px;color:#f97316;font-weight:600;margin-top:4px">確定後 残 ${nextRem}h</div>`:'<div style="font-size:12px;color:#22c55e;font-weight:600;margin-top:4px">✓ 残りなし</div>'}
+          </div>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:500">担当者</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0;margin-bottom:6px">${tantoChks}</div>
+        ${sumText?`<div style="font-size:12px;color:#334155;margin-bottom:8px;font-weight:500;background:#f1f5f9;border-radius:5px;padding:4px 8px">${sumText}</div>`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="confirmCalProc(${idx},${pi})" style="background:#22c55e;color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:600">✓ 確定</button>
+          <button onclick="cancelEditCalProc(${idx},${pi})" style="background:#f1f5f9;color:#475569;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px">×</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function addSubBlock(idx, pi){
+  const ps = waitingList[idx].calState[pi];
+  ps.addingSubBlock = true;
+  ps.added = false;
+  ps.editing = false;
+  ps.editDate = '';
+  ps.editHours = undefined; // リセット→残り全部がデフォルトに
+  ps.editTantos = [];
+  renderCalAddModal();
+}
+
+function removeSubBlock(idx, pi, si){
+  const ps = waitingList[idx].calState[pi];
+  const sb = (ps.subBlocks||[])[si];
+  if(sb && sb.groupId){
+    tantos.forEach(t=>{ calBlocks[t]=(calBlocks[t]||[]).filter(b=>b.groupId!==sb.groupId); });
+    renderCalendar();
+  }
+  ps.subBlocks.splice(si,1);
+  renderCalAddModal();
+  syncAllToCloud();
+}
+
+
+function setEditDate(idx, pi, val){
+  waitingList[idx].calState[pi].editDate = val;
+  renderCalAddModal();
+}
+function setEditHours(idx, pi, val){
+  const h = parseFloat(val);
+  if(!isNaN(h) && h > 0) waitingList[idx].calState[pi].editHours = h;
+  renderCalAddModal();
+}
+function updateProcTotal(idx, pi, val){
+  const h = parseFloat(val);
+  if(isNaN(h)||h<=0) return;
+  waitingList[idx].calState[pi].hours = h;
+  // 待機リストのprocs時間も更新
+  const procName = waitingList[idx].calState[pi].proc;
+  const prow = waitingList[idx].procs.find(p=>p.n===procName);
+  if(prow) prow.h = h;
+  renderCalAddModal();
+}
+function toggleTantoCheck(idx, pi, tanto){
+  const ps = waitingList[idx].calState[pi];
+  if(!ps.editTantos) ps.editTantos = [...(ps.assignedTantos||[])];
+  const i = ps.editTantos.indexOf(tanto);
+  if(i >= 0) ps.editTantos.splice(i,1); else ps.editTantos.push(tanto);
+  renderCalAddModal();
+}
+function confirmCalProc(idx, pi){
+  const c = waitingList[idx];
+  const ps = c.calState[pi];
+  const date = ps.editDate || ps.startDate;
+  const assignees = ps.editTantos || [];
+  if(!date){ alert('開始日を入力してください'); return; }
+  if(!assignees.length){ alert('担当者を選択してください'); return; }
+  const isSub = ps.addingSubBlock;
+  const subUsedH = (ps.subBlocks||[]).reduce((s,b)=>s+b.hours,0);
+  const remH = parseFloat((ps.hours - subUsedH).toFixed(2));
+  // editHoursは「この日の作業時間」。未入力なら残り全部
+  const useHours = ps.editHours !== undefined
+    ? Math.min(parseFloat(ps.editHours), remH)
+    : remH;
+  if(useHours <= 0){ alert('残り時間がありません'); return; }
+
+  // 初回確定
+  if(!isSub){
+    ps.startDate = date;
+    ps.assignedTantos = [...assignees];
+  }
+  ps.added = true;
+  ps.editing = false;
+  ps.addingSubBlock = false;
+  ps.editTantos = null;
+  ps.editHours = undefined;
+  ps.editDate = null;
+
+  const hoursPerPerson = assignees.length > 1 ? parseFloat((useHours / assignees.length).toFixed(2)) : useHours;
+  const groupId = `${c.company}|${c.model}|${ps.proc}|${date}|${Date.now()}`;
+
+  // 全追加をsubBlocksで管理（初回もサブとして記録）
+  if(!ps.subBlocks) ps.subBlocks = [];
+  ps.subBlocks.push({startDate:date, hours:useHours, tantos:[...assignees], groupId});
+
+  assignees.forEach(tanto => {
+    if(!tantos.includes(tanto)){tantos.push(tanto);calBlocks[tanto]=[];}
+    if(!calBlocks[tanto]) calBlocks[tanto]=[];
+    let rem = hoursPerPerson;
+    const cur = parseLocalDate(date);
+    let safety = 0;
+    while(rem > 0 && safety < 60){
+      if(!isHol(cur)){
+        const cap = getDayCapacity(cur);
+        const dateStr = localDateStr(cur);
+        const alreadyH = (calBlocks[tanto]||[])
+          .filter(b=>b.startDate===dateStr)
+          .reduce((s,b)=>s+b.hours, 0);
+        const available = parseFloat((cap - alreadyH).toFixed(2));
+        if(available > 0){
+          const todayH = parseFloat(Math.min(rem, available).toFixed(2));
+          const mon = getMonday(cur);
+          const diffDays = Math.round((cur - mon) / 86400000);
+          // 週をまたいでも全部保存（表示は現在週のもののみ）
+          calBlocks[tanto].push({day:diffDays, proc:ps.proc, hours:todayH,
+            company:c.company, model:c.model, startDate:dateStr, groupId, totalHours:useHours});
+          rem = parseFloat((rem - todayH).toFixed(2));
+        }
+      }
+      if(rem > 0){ cur.setDate(cur.getDate()+1); safety++; }
+    }
+  });
+  renderCalAddModal();
+  renderCalendar();
+  syncAllToCloud();
+}
+function editCalProc(idx, pi){
+  const ps = waitingList[idx].calState[pi];
+  ps.added = false;
+  ps.editing = true;
+  ps.editDate = ps.startDate;
+  ps.editTantos = [...(ps.assignedTantos||[])];
+  renderCalAddModal();
+}
+function cancelEditCalProc(idx, pi){
+  const ps = waitingList[idx].calState[pi];
+  ps.editDate = null;
+  ps.editTantos = null;
+  ps.editHours = undefined;
+  ps.addingSubBlock = false;
+  if(ps.startDate) ps.added = true;
+  renderCalAddModal();
+}
+
+function toggleDaProcCustom(val){
+  const custom = document.getElementById('da-proc-custom');
+  if(val === 'その他'){
+    custom.style.display = 'block';
+    custom.focus();
+  } else {
+    custom.style.display = 'none';
+    custom.value = '';
+  }
+}
+let directAddTarget = null;
+function openDirectAdd(tanto, di){
+  directAddTarget = {tanto, di};
+  const dates = getWeekDates(currentMonday);
+  const d = dates[di];
+  document.getElementById('direct-add-target').textContent =
+    `担当者: ${tanto}　日付: ${fmtMD(d)}（${DAYS_JP[di]}）`;
+  document.getElementById('da-hours').value = 8;
+  document.getElementById('da-company').value = '';
+  document.getElementById('da-model').value = '';
+  document.getElementById('da-proc').value = 'その他';
+  document.getElementById('da-proc-custom').value = '';
+  document.getElementById('da-proc-custom').style.display = 'block';
+  document.getElementById('direct-add-modal').style.display = 'flex';
+}
+function closeDirectAdd(){
+  document.getElementById('direct-add-modal').style.display = 'none';
+  directAddTarget = null;
+}
+function confirmDirectAdd(){
+  if(!directAddTarget) return;
+  const {tanto, di} = directAddTarget;
+  const procSel = document.getElementById('da-proc').value;
+  const procCustom = document.getElementById('da-proc-custom').value.trim();
+  const proc = procSel === 'その他' ? (procCustom || 'その他') : procSel;
+  const hours = parseFloat(document.getElementById('da-hours').value);
+  const company = document.getElementById('da-company').value.trim() || '直接入力';
+  const model = document.getElementById('da-model').value.trim() || '';
+  if(isNaN(hours)||hours<=0){alert('時間を入力してください');return;}
+  if(!calBlocks[tanto]) calBlocks[tanto]=[];
+  const dates = getWeekDates(currentMonday);
+  const startD = new Date(dates[di]);
+  let rem = hours;
+  const cur = new Date(startD);
+  let safety = 0;
+  while(rem > 0 && safety < 60){
+    if(!isHol(cur)){
+      const cap = getDayCapacity(cur);
+      const dateStr = localDateStr(cur);
+      const alreadyH = (calBlocks[tanto]||[])
+        .filter(b=>b.startDate===dateStr)
+        .reduce((s,b)=>s+b.hours, 0);
+      const available = parseFloat((cap - alreadyH).toFixed(2));
+      if(available > 0){
+        const todayH = parseFloat(Math.min(rem, available).toFixed(2));
+        calBlocks[tanto].push({
+          day: Math.round((cur - getMonday(cur)) / 86400000),
+          proc, hours: todayH, company, model,
+          manual: true, startDate: dateStr
+        });
+        rem = parseFloat((rem - todayH).toFixed(2));
+      }
+    }
+    if(rem > 0){ cur.setDate(cur.getDate()+1); safety++; }
+  }
+  closeDirectAdd();
+  renderCalendar();
+  syncAllToCloud();
+}
+
+function nextWorkday(d){
+  const nd = new Date(d);
+  nd.setDate(nd.getDate()+1);
+  while(isHol(nd)) nd.setDate(nd.getDate()+1);
+  return localDateStr(nd);
+}
+
+function deleteCalBlock(tanto, idx){
+  const blocks = calBlocks[tanto]||[];
+  if(idx < 0 || idx >= blocks.length) return;
+  const blk = blocks[idx];
+  const gid = blk.groupId;
+  const deletedH = blk.hours; // 削除するブロックの時間
+
+  // カレンダーから削除
+  calBlocks[tanto].splice(idx, 1);
+
+  // calStateのsubBlocksから削除した時間分を引く
+  if(gid){
+    waitingList.forEach(card=>{
+      if(!card.calState) return;
+      card.calState.forEach(ps=>{
+        if(!ps.subBlocks) return;
+        const sbIdx = ps.subBlocks.findIndex(sb=>sb.groupId === gid);
+        if(sbIdx === -1) return;
+
+        // そのgroupIdに属するカレンダーブロックの残り合計を計算
+        let calRemH = 0;
+        tantos.forEach(t=>{
+          (calBlocks[t]||[]).forEach(b=>{
+            if(b.groupId === gid) calRemH += b.hours;
+          });
+        });
+        calRemH = parseFloat(calRemH.toFixed(2));
+
+        if(calRemH <= 0){
+          // カレンダーに該当ブロックが1つもなくなった → subBlock丸ごと削除
+          ps.subBlocks.splice(sbIdx, 1);
+        } else {
+          // 残っているカレンダーブロックの合計でsubBlock時間を更新
+          ps.subBlocks[sbIdx].hours = calRemH;
+        }
+
+        // subBlocksが全部なくなったら追加済みフラグをリセット
+        if(ps.subBlocks.length === 0){
+          ps.added = false;
+          ps.startDate = '';
+          ps.assignedTantos = [];
+        }
+      });
+    });
+  }
+  renderCalendar();
+  renderCards();
+  syncAllToCloud();
+}
+
+function changeWeek(d){currentMonday.setDate(currentMonday.getDate()+d*7);renderCalendar();}
+function goToday(){currentMonday=getMonday(new Date());renderCalendar();}
+
+function openTantoModal(){
+  renderTantoList();
+  const m=document.getElementById('tanto-modal');
+  m.style.display='flex';
+  document.getElementById('tanto-input').value='';
+  document.getElementById('tanto-input').focus();
+}
+function closeTantoModal(){
+  document.getElementById('tanto-modal').style.display='none';
+  renderCalendar();
+}
+
+// ===== 残業設定モーダル =====
+function openZangyouModal(){
+  renderZangyouList();
+  renderHolidayPicker();
+  document.getElementById('zangyou-modal').style.display='flex';
+}
+function closeZangyouModal(){
+  document.getElementById('zangyou-modal').style.display='none';
+  renderCalendar();
+}
+function renderZangyouList(){
+  const el=document.getElementById('zangyou-list');
+  if(!zangyouList.length){el.innerHTML='<div style="font-size:12px;color:#94a3b8">設定なし</div>';return;}
+  el.innerHTML=zangyouList.map((z,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px">
+      <span style="color:#1e293b;font-weight:500">${z.from}〜${z.to}　+${z.hours}h/日</span>
+      <button onclick="removeZangyou(${i})" style="margin-left:auto;background:#fee2e2;color:#991b1b;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">削除</button>
+    </div>`).join('');
+}
+function addZangyou(){
+  const from=document.getElementById('zan-from').value;
+  const to=document.getElementById('zan-to').value;
+  const hours=parseFloat(document.getElementById('zan-hours').value);
+  if(!from||!to){alert('期間を入力してください');return;}
+  if(from>to){alert('開始日は終了日以前にしてください');return;}
+  zangyouList.push({from,to,hours});
+  zangyouList.sort((a,b)=>a.from.localeCompare(b.from));
+  renderZangyouList();
+  syncAllToCloud();
+}
+function removeZangyou(i){
+  zangyouList.splice(i,1);
+  renderZangyouList();
+  syncAllToCloud();
+}
+function renderHolidayPicker(){
+  const today=new Date();
+  const targets=[];
+  const startD=new Date(today.getFullYear(),today.getMonth(),1);
+  const endD=new Date(today.getFullYear(),today.getMonth()+2,0);
+  const cur=new Date(startD);
+  while(cur<=endD){
+    const dw=cur.getDay();
+    const s=localDateStr(cur);
+    if(dw===0||dw===6||HOLS.includes(s)) targets.push({date:new Date(cur),str:s,dw});
+    cur.setDate(cur.getDate()+1);
+  }
+  const months={};
+  targets.forEach(t=>{
+    const mk=t.date.getFullYear()+'年'+(t.date.getMonth()+1)+'月';
+    if(!months[mk]) months[mk]=[];
+    months[mk].push(t);
+  });
+  const DAYNAMES=['日','月','火','水','木','金','土'];
+  let html='';
+  Object.entries(months).forEach(([mk,days])=>{
+    html+=`<div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:6px;margin-top:10px;padding-bottom:3px;border-bottom:1px solid #e2e8f0">${mk}</div>`;
+    html+=`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px">`;
+    days.forEach(t=>{
+      const checked=workDays.has(t.str);
+      const isNH=HOLS.includes(t.str);
+      const label=t.date.getDate()+'('+(isNH?'祝':DAYNAMES[t.dw])+')';
+      html+=`<label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:500;background:${checked?'#dcfce7':'#f8fafc'};border:1px solid ${checked?'#86efac':'#e2e8f0'};color:${checked?'#166534':'#475569'}">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleWorkDay('${t.str}',this.checked)" style="display:none">${label}
+      </label>`;
+    });
+    html+='</div>';
+  });
+  document.getElementById('holiday-picker').innerHTML=html||'<div style="font-size:12px;color:#94a3b8">対象日なし</div>';
+}
+function toggleWorkDay(dateStr, checked){
+  if(checked) workDays.add(dateStr);
+  else workDays.delete(dateStr);
+  renderHolidayPicker();
+  syncAllToCloud();
+}
+function renderTantoList(){
+  const list=document.getElementById('tanto-list');
+  if(!tantos.length){list.innerHTML='<div style="color:#94a3b8;font-size:12px">担当者がいません</div>';return;}
+  list.innerHTML=tantos.map((n,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:7px;margin-bottom:5px">
+      <span style="font-size:13px;font-weight:500;color:#1e293b">${n}</span>
+      <button onclick="removeTanto(${i})" style="background:#fee2e2;color:#991b1b;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">削除</button>
+    </div>`).join('');
+}
+function doAddTanto(){
+  const n=document.getElementById('tanto-input').value.trim();
+  if(!n) return;
+  if(tantos.includes(n)){alert('同じ名前の担当者がすでにいます');return;}
+  tantos.push(n);
+  calBlocks[n]=[];
+  document.getElementById('tanto-input').value='';
+  renderTantoList();
+  renderCalendar();
+  syncAllToCloud();
+}
+function removeTanto(i){
+  const name=tantos[i];
+  tantos.splice(i,1);
+  delete calBlocks[name];
+  renderTantoList();
+  renderCalendar();
+  syncAllToCloud();
+}
+
+// ===== データ取込 =====
+// ===== 手打ちデータ =====
+function addManualDataAndSave(){
+  // まず追加処理（型式チェック）
+  const model = document.getElementById('mi-model').value.trim();
+  if(!model){ alert('型式を入力してください'); document.getElementById('mi-model').focus(); return; }
+  const PROCS_MAP = {'ヘッダ製作':'mi-head','フィン抜き':'mi-fin','拡管':'mi-kou','仮組立':'mi-kari','溶接':'mi-you','本組立':'mi-hon'};
+  const row = {
+    '会社名': document.getElementById('mi-company').value.trim()||'',
+    '型式': model,
+    '受注番号': document.getElementById('mi-order').value.trim()||'',
+    '_manual': true
+  };
+  Object.entries(PROCS_MAP).forEach(([proc,id])=>{
+    const v=parseFloat(document.getElementById(id).value);
+    row[proc]=isNaN(v)||v<=0?null:v;
+  });
+  manualData.push(row);
+  saveManualData();
+  ['mi-company','mi-model','mi-order','mi-head','mi-fin','mi-kou','mi-kari','mi-you','mi-hon'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  renderManualTable();
+  // そのままアプリ保存
+  saveUpdatedApp();
+  syncAllToCloud();
+}
+
+function removeManualRow(i){
+  manualData.splice(i,1);
+  saveManualData();
+  renderManualTable();
+  syncAllToCloud();
+}
+
+function exportManualData(){
+  if(!manualData.length){ alert('データがありません'); return; }
+  const json = JSON.stringify(manualData, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '工程実績データ_' + localDateStr(new Date()).replace(/-/g,'') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importManualData(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!Array.isArray(data)){ alert('ファイルの形式が正しくありません'); return; }
+      // 既存データとマージ（型式+会社名が同じものは上書き）
+      data.forEach(newRow => {
+        const existing = manualData.findIndex(r =>
+          r['型式']===newRow['型式'] && r['会社名']===newRow['会社名']
+        );
+        if(existing >= 0) manualData[existing] = newRow;
+        else manualData.push(newRow);
+      });
+      saveManualData();
+      renderManualTable();
+      alert(`✓ ${data.length}件を読み込みました（合計${manualData.length}件）`);
+    }catch(err){
+      alert('読み込みエラー: ' + err.message);
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+function clearManualData(){
+  manualData=[];
+  saveManualData();
+  renderManualTable();
+  syncAllToCloud();
+}
+
+function renderManualTable(){
+  const card=document.getElementById('manual-data-card');
+  if(!manualData.length){card.style.display='none';return;}
+  card.style.display='block';
+  const PROCS_LIST=['ヘッダ製作','フィン抜き','拡管','仮組立','溶接','本組立'];
+  const cols=['会社名','型式','受注番号',...PROCS_LIST];
+  const titleEl=card.querySelector('.card-title');
+  if(titleEl) titleEl.textContent=`手打ちデータ一覧（${manualData.length}件）`;
+  let tbl=`<thead><tr>
+    <th style="width:28px"><input type="checkbox" id="manual-check-all" onchange="toggleAllManualChecks(this.checked)" style="cursor:pointer"></th>
+    ${cols.map(c=>`<th>${c}</th>`).join('')}
+    <th></th></tr></thead><tbody>`;
+  manualData.forEach((r,i)=>{
+    tbl+=`<tr id="manual-row-${i}" onclick="toggleManualRow(this,${i})" style="cursor:pointer;transition:background .1s" onmouseover="if(!this.classList.contains('selected'))this.style.background='#f8fafc'" onmouseout="if(!this.classList.contains('selected'))this.style.background=''">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="manual-check" data-idx="${i}" onchange="toggleManualRow(this.closest('tr'),${i})" style="cursor:pointer"></td>
+      ${cols.map(c=>{
+        const v=r[c];
+        if(PROCS_LIST.includes(c)){const n=parseFloat(v);return`<td>${!isNaN(n)&&n>0?n.toFixed(2):'—'}</td>`;}
+        return`<td>${v||'—'}</td>`;
+      }).join('')}
+      <td><button onclick="removeManualRow(${i})" style="background:#fee2e2;color:#991b1b;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;font-weight:600">削除</button></td></tr>`;
+  });
+  tbl+='</tbody>';
+  document.getElementById('manual-table').innerHTML=tbl;
+  // 選択削除ボタン更新
+  updateManualDeleteBtn();
+}
+
+function toggleExcelRow(tr, idx){
+  const cb = tr.querySelector('.excel-check');
+  if(!cb) return;
+  cb.checked = !cb.checked;
+  if(cb.checked){ tr.classList.add('selected'); tr.style.background='#dbeafe'; }
+  else{ tr.classList.remove('selected'); tr.style.background=''; }
+  updateExcelDeleteBtn();
+}
+function toggleManualRow(tr, idx){
+  const cb = tr.querySelector('.manual-check');
+  if(!cb) return;
+  cb.checked = !cb.checked;
+  if(cb.checked){ tr.classList.add('selected'); tr.style.background='#dbeafe'; }
+  else{ tr.classList.remove('selected'); tr.style.background=''; }
+  updateManualDeleteBtn();
+}
+function toggleAllExcelChecks(checked){
+  document.querySelectorAll('.excel-check').forEach(cb=>{
+    cb.checked=checked;
+    const tr=cb.closest('tr');
+    if(checked){tr.classList.add('selected');tr.style.background='#dbeafe';}
+    else{tr.classList.remove('selected');tr.style.background='';}
+  });
+  updateExcelDeleteBtn();
+}
+function updateExcelDeleteBtn(){
+  const btn=document.getElementById('excel-delete-selected-btn');
+  const cnt=document.getElementById('excel-select-count');
+  if(!btn) return;
+  const n=document.querySelectorAll('.excel-check:checked').length;
+  btn.style.display=n>0?'inline-block':'none';
+  btn.textContent=`🗑 選択削除（${n}件）`;
+  if(cnt) cnt.textContent=n>0?`${n}件選択中`:'';
+}
+function deleteSelectedExcel(){
+  const idxs=Array.from(document.querySelectorAll('.excel-check:checked')).map(cb=>parseInt(cb.dataset.idx)).sort((a,b)=>b-a);
+  idxs.forEach(i=>importedData.splice(i,1));
+  const statH=`<div class="stat"><div class="stat-n">${importedData.length}</div><div class="stat-l">総件数</div></div>`+
+    PROCS.map(p=>{const n=importedData.filter(r=>parseFloat(r[p])>0).length;return`<div class="stat"><div class="stat-n" style="color:${PCOL[p]}">${n}</div><div class="stat-l">${p}</div></div>`;}).join('');
+  document.getElementById('stat-row').innerHTML=statH;
+  document.getElementById('file-status').textContent=`✓ ${importedData.length}件`;
+  renderExcelTable();
+}
+
+function toggleAllManualChecks(checked){
+  document.querySelectorAll('.manual-check').forEach(cb=>{
+    cb.checked=checked;
+    const tr=cb.closest('tr');
+    if(checked){tr.classList.add('selected');tr.style.background='#dbeafe';}
+    else{tr.classList.remove('selected');tr.style.background='';}
+  });
+  updateManualDeleteBtn();
+}
+function updateManualDeleteBtn(){
+  const btn=document.getElementById('manual-delete-selected-btn');
+  if(!btn) return;
+  const n=document.querySelectorAll('.manual-check:checked').length;
+  btn.style.display=n>0?'inline-flex':'none';
+  btn.textContent=`🗑 選択削除（${n}件）`;
+}
+function deleteSelectedManual(){
+  const idxs=Array.from(document.querySelectorAll('.manual-check:checked')).map(cb=>parseInt(cb.dataset.idx)).sort((a,b)=>b-a);
+  idxs.forEach(i=>manualData.splice(i,1));
+  saveManualData();
+  renderManualTable();
+  syncAllToCloud();
+}
+
+function saveUpdatedApp(){
+  const html = document.documentElement.outerHTML;
+  // importedData を最新に差し替え
+  let updated = html.replace(
+    /let importedData=\[.*?\]; \/\/ 工程時間2026データ（\d+件）/,
+    `let importedData=${JSON.stringify(importedData)}; // 工程時間2026データ（${importedData.length}件）`
+  );
+  // manualData を最新に差し替え（既存の初期化行ごと）
+  updated = updated.replace(
+    /let manualData=\[.*?\]; \/\/ 手打ちデータ（\d+件）/,
+    `let manualData=${JSON.stringify(manualData)}; // 手打ちデータ（${manualData.length}件）`
+  );
+  const blob = new Blob([updated], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '製造工数計算アプリ.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  setTimeout(()=>alert(`✓ 保存しました！\nExcelデータ: ${importedData.length}件\n手打ちデータ: ${manualData.length}件\n\n新しいHTMLファイルを使ってください。`), 300);
+}
+
+function loadFile(inp){
+  const file=inp.files[0];if(!file)return;
+  document.getElementById('file-status').textContent='読み込み中...';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{defval:null});
+      processData(raw,file.name);
+    }catch(err){
+      document.getElementById('file-status').textContent='エラー: '+err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processData(raw,fname){
+  // 工種名のマッピング
+  const PROC_MAP={
+    'ヘッター製作':'ヘッダ製作','ヘッダ製作':'ヘッダ製作',
+    '分流器・ﾍｯﾀﾞ製作':'ヘッダ製作','分流器・ヘッダ製作':'ヘッダ製作',
+    'フィン抜き':'フィン抜き','フィン抜き・フィン加工':'フィン抜き',
+    '拡管':'拡管',
+    '仮組立':'仮組立',
+    '溶接':'溶接','溶接・自動機器取付':'溶接',
+    '本組立':'本組立','本組立・結線':'本組立',
+  };
+
+  // フォーマット判定：「工種」列があれば縦型（長形式）
+  const firstRow = raw[0] || {};
+  const keys = Object.keys(firstRow).map(k=>k.trim());
+  const isLong = keys.includes('工種') || keys.includes('工程');
+
+  if(isLong){
+    // 縦型→横型に変換
+    // 客先名/会社名、製品名/型式 でグループ化
+    const companyKey = keys.find(k=>['客先名','会社名'].includes(k)) || '客先名';
+    const modelKey = keys.find(k=>['製品名','型式'].includes(k)) || '製品名';
+    const procKey = keys.find(k=>['工種','工程'].includes(k)) || '工種';
+    const timeKey = keys.find(k=>['実績','実績時間'].includes(k)) || '実績';
+
+    const map={};
+    raw.forEach(row=>{
+      const company=(row[companyKey]||'').toString().trim();
+      const model=(row[modelKey]||'').toString().trim();
+      const proc=(row[procKey]||'').toString().trim();
+      const time=parseFloat(row[timeKey]);
+      if(!model||!proc) return;
+      const procNorm=PROC_MAP[proc]||null;
+      if(!procNorm) return; // 対象外工種はスキップ
+      if(isNaN(time)||time<=0) return;
+      const key=company+'|'+model;
+      if(!map[key]) map[key]={'会社名':company,'型式':model};
+      // 同製品・同工程が複数行ある場合は合算
+      map[key][procNorm]=(parseFloat(map[key][procNorm])||0)+time;
+    });
+    importedData=[...importedData, ...Object.values(map).filter(r=>r['型式'])];
+  } else {
+    const CM={
+      '会社名':'会社名','会社名\u3000':'会社名','客先名':'会社名',
+      '受注番号':'受注番号','型式':'型式','製品名':'型式','出荷日':'出荷日',
+    };
+    Object.keys(PROC_MAP).forEach(k=>{ CM[k]=PROC_MAP[k]; });
+    const newRows=raw.map(row=>{
+      const n={};
+      Object.keys(row).forEach(k=>{const nk=CM[k.trim()]||k.trim();n[nk]=row[k];});
+      return n;
+    }).filter(r=>r['型式']&&r['型式'].toString().trim());
+    importedData=[...importedData, ...newRows];
+  }
+
+  // 受注番号で重複除去（受注番号がある場合のみ）
+  const seenOrders=new Set();
+  importedData=importedData.filter(row=>{
+    const key=(row['受注番号']||'').toString().trim();
+    if(!key) return true; // 受注番号なしはそのまま残す
+    if(seenOrders.has(key)) return false;
+    seenOrders.add(key);
+    return true;
+  });
+
+  document.getElementById('file-status').innerHTML=
+    `✓ ${fname} を読み込みました（合計${importedData.length}件）
+    <button onclick="saveUpdatedApp()" style="margin-left:10px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">💾 アプリを更新保存</button>
+    <span style="font-size:11px;color:#94a3b8;margin-left:6px">←クリックで新データ込みのHTMLを保存</span>`;
+  document.getElementById('data-result').style.display='block';
+
+  const statH=`<div class="stat"><div class="stat-n">${importedData.length}</div><div class="stat-l">総件数</div></div>`+
+    PROCS.map(p=>{
+      const n=importedData.filter(r=>parseFloat(r[p])>0).length;
+      return `<div class="stat"><div class="stat-n" style="color:${PCOL[p]}">${n}</div><div class="stat-l">${p}</div></div>`;
+    }).join('');
+  document.getElementById('stat-row').innerHTML=statH;
+
+  // 選択削除ボタン
+  let delBtnHtml=`<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+    <button id="excel-delete-selected-btn" onclick="deleteSelectedExcel()" style="display:none;font-size:11px;color:#fff;background:#ef4444;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-weight:600">🗑 選択削除</button>
+    <span id="excel-select-count" style="font-size:11px;color:#94a3b8"></span>
+  </div>`;
+
+  const cols=['会社名','型式','ヘッダ製作','フィン抜き','拡管','仮組立','溶接','本組立'];
+  let tbl=`<thead><tr>
+    <th style="width:28px"><input type="checkbox" id="excel-check-all" onchange="toggleAllExcelChecks(this.checked)" style="cursor:pointer"></th>
+    ${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  importedData.forEach((r,i)=>{
+    tbl+=`<tr><td><input type="checkbox" class="excel-check" data-idx="${i}" onchange="updateExcelDeleteBtn()" style="cursor:pointer"></td>${cols.map(c=>{
+      const v=r[c];
+      if(PROCS.includes(c)){const n=parseFloat(v);return`<td>${!isNaN(n)&&n>0?n.toFixed(2):'—'}</td>`;}
+      return`<td>${v||'—'}</td>`;
+    }).join('')}</tr>`;
+  });
+  tbl+='</tbody>';
+  document.getElementById('data-table').innerHTML=delBtnHtml+`<table class="dtable" style="width:100%">${tbl}</table>`;
+
+  let avgTbl=`<thead><tr><th>工程</th><th>件数</th><th>平均時間</th><th>最小</th><th>最大</th></tr></thead><tbody>`;
+  PROCS.forEach(p=>{
+    const vals=importedData.map(r=>parseFloat(r[p])).filter(v=>!isNaN(v)&&v>0);
+    const avg=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+    const col=PCOL[p];
+    avgTbl+=`<tr>
+      <td><span style="display:inline-flex;align-items:center;gap:6px">
+        <span style="width:10px;height:10px;border-radius:2px;background:${col};display:inline-block;flex-shrink:0"></span>${p}
+      </span></td>
+      <td>${vals.length}件</td>
+      <td style="font-weight:700">${avg!==null?avg.toFixed(2)+' h':'—'}</td>
+      <td>${vals.length?Math.min(...vals).toFixed(2)+' h':'—'}</td>
+      <td>${vals.length?Math.max(...vals).toFixed(2)+' h':'—'}</td>
+    </tr>`;
+  });
+  avgTbl+='</tbody>';
+  document.getElementById('avg-table').innerHTML=avgTbl;
+}
+
+// ドラッグ＆ドロップ
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='#2563eb';dz.style.background='#eff6ff';});
+dz.addEventListener('dragleave',()=>{dz.style.borderColor='#cbd5e1';dz.style.background='#fff';});
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.style.borderColor='#cbd5e1';dz.style.background='#fff';
+  const file=e.dataTransfer.files[0];
+  if(file){
+    const dt=new DataTransfer();dt.items.add(file);
+    document.getElementById('file-in').files=dt.files;
+    loadFile(document.getElementById('file-in'));
+  }
+});
+
+// 初期化
+document.getElementById('start-date').value=localDateStr(new Date());
+document.getElementById('ship-date').value=localDateStr(new Date());
+// クラウドからデータ読み込み
+loadAllFromCloud().then(()=>{
+  renderCalendar();
+  renderCards();
+  renderManualTable();
+});
+// 組み込みデータのステータスだけ表示（processDataは呼ばない）
+document.getElementById('file-status').textContent=`✓ 工程時間2026データ（${importedData.length}件）を読み込み済み`;
+document.getElementById('data-result').style.display='block';
+// 読み込み結果テーブルだけ更新
+(function(){
+  const statH=`<div class="stat"><div class="stat-n">${importedData.length}</div><div class="stat-l">総件数</div></div>`+
+    PROCS.map(p=>{
+      const n=importedData.filter(r=>parseFloat(r[p])>0).length;
+      return `<div class="stat"><div class="stat-n" style="color:${PCOL[p]}">${n}</div><div class="stat-l">${p}</div></div>`;
+    }).join('');
+  document.getElementById('stat-row').innerHTML=statH;
+  renderExcelTable();
+})();
+
+function renderExcelTable(){
+  const cols=['会社名','型式','受注番号',...PROCS];
+  let tbl=`<thead><tr>
+    <th style="width:28px"><input type="checkbox" id="excel-check-all" onchange="toggleAllExcelChecks(this.checked)" style="cursor:pointer"></th>
+    ${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  importedData.forEach((r,i)=>{
+    tbl+=`<tr onclick="toggleExcelRow(this,${i})" style="cursor:pointer;transition:background .1s" onmouseover="if(!this.classList.contains('selected'))this.style.background='#f8fafc'" onmouseout="if(!this.classList.contains('selected'))this.style.background=''">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="excel-check" data-idx="${i}" onchange="toggleExcelRow(this.closest('tr'),${i})" style="cursor:pointer"></td>
+      ${cols.map(c=>{const v=r[c];if(PROCS.includes(c)){const n=parseFloat(v);return`<td>${!isNaN(n)&&n>0?n.toFixed(2):'—'}</td>`;}return`<td>${v||'—'}</td>`;}).join('')}</tr>`;
+  });
+  tbl+='</tbody>';
+  document.getElementById('data-table').innerHTML=tbl;
+}
+</script>
+</body>
+</html>
