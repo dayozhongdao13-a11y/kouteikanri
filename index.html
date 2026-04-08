@@ -92,7 +92,7 @@ input:focus,select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px 
 .wc-dot{width:8px;height:8px;border-radius:50%;background:#2563eb;flex-shrink:0}
 .wc-shiptext{font-size:13px;color:#1e293b;font-weight:600}
 .wc-days{font-size:10px;background:#f1f5f9;color:#475569;border-radius:4px;padding:1px 6px;font-weight:600}
-.prow{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.prow{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;padding-bottom:3px;border-bottom:1px solid #cbd5e1}
 .pname{font-size:10px;display:flex;align-items:center;gap:3px;color:#334155}
 .pdot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
 .pbar-wrap{height:5px;border-radius:3px;overflow:hidden;background:#e2e8f0;margin:6px 0}
@@ -1119,7 +1119,7 @@ function renderCards(){
           <div class="pdot" style="background:${col}"></div>${p.n} ${p.h}h
         </div>
         <div style="display:flex;align-items:center;gap:4px">
-          ${hasRem?`<span style="font-size:11px;font-weight:700;color:#f97316;background:#fff7ed;border-radius:4px;padding:1px 6px">残${remH}h</span>`:''}
+          ${hasRem&&!p.done?`<span style="font-size:11px;font-weight:700;color:#f97316;background:#fff7ed;border-radius:4px;padding:1px 6px">残${remH}h</span>`:''}
           ${p.done?'<div class="done-tag">完</div>':''}
         </div>
       </div>`;
@@ -1271,7 +1271,11 @@ function renderCalAddModal(){
       </label>`;
     }).join('');
 
-    const editDate = ps.editDate || ps.startDate || minDate || '';
+    // editDateが未設定なら自動初期化（一度変えなくてもそのまま使える）
+    if(!ps.editDate && (ps.startDate || minDate)){
+      ps.editDate = ps.startDate || minDate;
+    }
+    const editDate = ps.editDate || '';
     const numTanto = ps.editTantos ? ps.editTantos.length : 0;
 
     // 左列：合計時間（編集可）＋残り時間（大きく表示）
@@ -1290,7 +1294,7 @@ function renderCalAddModal(){
     </td>`;
 
     if(isAdded){
-      return `<tr style="border-bottom:1px solid #f1f5f9">${leftTd}
+      return `<tr style="border-bottom:2px solid #cbd5e1">${leftTd}
         <td style="padding:12px 16px;vertical-align:top">
           ${subHtml}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
@@ -1308,13 +1312,13 @@ function renderCalAddModal(){
     const perPerson = numTanto > 1 ? (dayH / numTanto).toFixed(2) : dayH;
     const sumText = numTanto > 0 ? `合計 ${dayH}h　→　1人あたり ${perPerson}h` : '';
     const nextRem = parseFloat((dispRemH - dayH).toFixed(2));
-    return `<tr style="border-bottom:1px solid #f1f5f9;background:#fafafa">${leftTd}
+    return `<tr style="border-bottom:2px solid #cbd5e1;background:#fafafa">${leftTd}
       <td style="padding:12px 16px;vertical-align:top">
         ${subHtml}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
           <div>
             <div style="font-size:11px;color:#64748b;margin-bottom:3px;font-weight:500">開始日</div>
-            <input type="date" value="${editDate}" min="${minDate}" onchange="setEditDate(${idx},${pi},this.value)"
+            <input type="date" value="${editDate}" min="${minDate}" onchange="setEditDate(${idx},${pi},this.value)" onfocus="if(!waitingList[${idx}].calState[${pi}].editDate)waitingList[${idx}].calState[${pi}].editDate=this.value"
               style="height:32px;border:1px solid #e2e8f0;border-radius:6px;padding:0 8px;font-size:12px;background:#fff;color:#1e293b">
           </div>
           <div>
@@ -1322,7 +1326,7 @@ function renderCalAddModal(){
               この日の作業時間 (h)
             </div>
             <div style="display:flex;gap:4px;align-items:center">
-              <input type="number" value="${dayH}" min="0.1" step="0.25" max="${dispRemH}"
+              <input type="number" value="${dayH}" min="0" step="0.25" max="${dispRemH}"
                 onchange="setEditHours(${idx},${pi},this.value)"
                 style="height:32px;width:80px;border:1px solid #e2e8f0;border-radius:6px;padding:0 8px;font-size:12px;background:#fff;color:#1e293b">
               <span style="font-size:11px;color:#94a3b8">/ ${dispRemH}h</span>
@@ -1370,9 +1374,19 @@ function setEditDate(idx, pi, val){
   waitingList[idx].calState[pi].editDate = val;
   renderCalAddModal();
 }
+function initEditDate(idx, pi, val){
+  // 日付入力欄の初期値を強制セット（一度変更しなくても使えるように）
+  if(!waitingList[idx].calState[pi].editDate){
+    waitingList[idx].calState[pi].editDate = val;
+  }
+}
 function setEditHours(idx, pi, val){
   const h = parseFloat(val);
-  if(!isNaN(h) && h > 0) waitingList[idx].calState[pi].editHours = h;
+  if(val === '' || isNaN(h)){
+    waitingList[idx].calState[pi].editHours = 0;
+  } else {
+    waitingList[idx].calState[pi].editHours = h > 0 ? h : 0;
+  }
   renderCalAddModal();
 }
 function updateProcTotal(idx, pi, val){
@@ -1406,7 +1420,7 @@ function confirmCalProc(idx, pi){
   const useHours = ps.editHours !== undefined
     ? Math.min(parseFloat(ps.editHours), remH)
     : remH;
-  if(useHours <= 0){ alert('残り時間がありません'); return; }
+  if(useHours <= 0 || ps.editHours === 0){ return; } // 0時間は追加しない
 
   // 初回確定
   if(!isSub){
